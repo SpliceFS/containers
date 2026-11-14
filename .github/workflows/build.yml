@@ -210,3 +210,31 @@ jobs:
             -t "${repository}:${date}-${short}" \
             "$@"
           docker buildx imagetools inspect "${repository}:latest"
+
+  # The branch rule needs one check with a fixed name: the build jobs are named after the
+  # images they build, and those differ from one change to the next. This job fails unless
+  # finding the images worked and every build passed. No build at all (nothing under images/
+  # changed) is a pass.
+  result:
+    name: All builds
+    needs: [changed, build]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Every build passed
+        env:
+          CHANGED: ${{ needs.changed.result }}
+          BUILD: ${{ needs.build.result }}
+        run: |
+          if [ "${CHANGED}" != success ]; then
+              echo "Finding the images ended with: ${CHANGED}" >&2
+              exit 1
+          fi
+          case "${BUILD}" in
+          success | skipped) echo "Every build passed." ;;
+          *)
+              echo "The builds ended with: ${BUILD}" >&2
+              exit 1
+              ;;
+          esac
