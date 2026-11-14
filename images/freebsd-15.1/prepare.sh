@@ -1,10 +1,10 @@
 #!/bin/sh
-# Makes images/freebsd-15.1/disk.qcow2, the FreeBSD disk that the Dockerfile copies into the
+# Makes disk.qcow2 next to this script, the FreeBSD disk that the Dockerfile copies into the
 # image. The build workflow runs it on the runner before "docker build", from the
 # repository root, because the disk is made by booting FreeBSD once and docker build
 # cannot give a machine hardware help.
 #
-#   sh images/freebsd-15.1/prepare.sh amd64
+#   sh images/<name>/prepare.sh amd64
 #
 # It downloads the official disk (the line of the file "official"), checks its checksum,
 # unpacks it, and lets prepare-disk.sh set it up inside the go-qemu image. The download

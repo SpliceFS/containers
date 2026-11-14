@@ -17,6 +17,8 @@ Pull it with `docker pull ghcr.io/splicefs/freebsd-15.1:latest`.
 - `/freebsd/disk.qcow2`: the prepared disk.
 - `/freebsd/vm.sh`: the machine runner. QEMU comes from the `go-qemu` image.
 - `/freebsd/user-data.in`: the template of the file that FreeBSD runs on boot.
+- `/freebsd/official`: the line of the official disk this one was made from. Its first
+  field is the FreeBSD release.
 
 ## How a test uses it
 
@@ -53,5 +55,9 @@ a compressed standalone disk, `disk.qcow2` (not committed to git). Then the Dock
 copies it into the image.
 
 The image is built only when this folder changes, or when somebody starts the Build
-workflow by hand with the image name `freebsd-15.1`. To move to another FreeBSD release,
-change the line in `official` (and the folder name), then build.
+workflow by hand with the image name `freebsd-15.1`.
+
+Each FreeBSD release has a folder of its own, and the folders are copies on purpose: the
+build of an image sees only its own folder. Every file except `official` and `README.md`
+is identical in all of them, and `scripts/same-files.sh` checks that. To add a release,
+copy a folder, change `official` and `README.md`, and leave the other files alone.

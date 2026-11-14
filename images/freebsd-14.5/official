@@ -1,0 +1,2 @@
+# The official FreeBSD disk this image is made from: release, CPU type, SHA-256 checksum, address. prepare.sh refuses a download that does not match the checksum.
+14.5 amd64 a2a8cd84cd59077225a0e75ead852e8a08fe26f9ab251a96d5a4fd4fe1db4454 https://download.freebsd.org/releases/VM-IMAGES/14.5-RELEASE/amd64/Latest/FreeBSD-14.5-RELEASE-amd64-BASIC-CLOUDINIT-ufs.qcow2.xz

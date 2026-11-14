@@ -36,6 +36,8 @@ jobs:
         run: |
           sh scripts/changed-images-test.sh
           sh scripts/image-arches-test.sh
+          sh scripts/same-files-test.sh
+          sh scripts/same-files.sh
           shellcheck --shell=sh -o all scripts/*.sh
       - name: List the images
         id: list

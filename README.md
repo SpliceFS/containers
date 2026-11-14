@@ -22,6 +22,7 @@ SpliceFS itself.
 | --- | --- | --- |
 | [`go-qemu`](images/go-qemu) | The Go toolchain image plus QEMU for amd64 and arm64 guests, FUSE, curl and xz | FreeBSD machine tests of server, client and packages |
 | [`freebsd-15.1`](images/freebsd-15.1) | A FreeBSD 15.1 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
+| [`freebsd-14.5`](images/freebsd-14.5) | A FreeBSD 14.5 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
 
 ## Pull an image
 
@@ -30,8 +31,8 @@ docker pull ghcr.io/splicefs/go-qemu:latest
 ```
 
 An image is published for amd64 and arm64, unless its folder holds a file `arch` that
-lists fewer CPU types. `freebsd-15.1` is amd64 only. Docker picks the one that matches
-your machine.
+lists fewer CPU types. `freebsd-15.1` and `freebsd-14.5` are amd64 only. Docker picks the
+one that matches your machine.
 
 ## Tags
 

@@ -28,7 +28,10 @@ before work is spent on it.
    help. The workflow runs `sh images/<name>/prepare.sh <arch>` on the runner, from the
    repository root, before `docker build`. The script may download and compute, and leaves
    its result inside `images/<name>/` for the Dockerfile to copy. Files it leaves behind
-   are ignored by git (`images/*/disk.qcow2`, `images/*/work/`).
+   are ignored by git (`images/*/disk.qcow2`, `images/*/work/`). The folders
+   `images/freebsd-*` are copies of each other on purpose, because the build of an image sees
+   only its own folder: every file except `official` and `README.md` must be identical in all
+   of them, and `scripts/same-files.sh` fails when one differs.
 7. Add the image to the table in the top-level `README.md`.
 8. Open a pull request.
 
@@ -54,6 +57,8 @@ The scripts are POSIX sh. Check them with what the Build workflow runs:
 ```sh
 sh scripts/changed-images-test.sh
 sh scripts/image-arches-test.sh
+sh scripts/same-files-test.sh
+sh scripts/same-files.sh
 shellcheck --shell=sh -o all scripts/*.sh
 ```
 
@@ -99,7 +104,7 @@ the Build workflow by hand from the Actions tab. There is no scheduled rebuild.
 
 | Workflow | What it does |
 | --- | --- |
-| Build | tests the scripts that pick the images and their CPU types, runs ShellCheck, prepares and builds the changed images for each of their CPU types, and on `main` publishes them |
+| Build | tests the scripts that pick the images and their CPU types, checks that the FreeBSD image folders hold the same files, runs ShellCheck, prepares and builds the changed images for each of their CPU types, and on `main` publishes them |
 | Security | CodeQL on the workflows, the tracked-files check, and dependency review on pull requests |
 | Scorecard | OpenSSF Scorecard, published weekly and on every push |
 

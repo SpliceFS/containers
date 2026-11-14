@@ -5,13 +5,15 @@
 # hook runs the job on every boot, and nothing of the first boot repeats.
 set -eu
 
-# The base system may ship only a stub that fetches the real pkg on first use. This is the
-# same check the job scripts make, so that the disk and the jobs agree.
+# On a release whose base system is not managed by pkg, the base system ships only a stub
+# that fetches the real pkg on first use, and pkg -N fails until pkg bootstrap ran. This is
+# the same check the job scripts make, so that the disk and the jobs agree.
 pkg -N >/dev/null 2>&1 || env ASSUME_ALWAYS_YES=yes pkg bootstrap -y
 pkg update
 
-# The first boot downloaded the base system updates into the package cache. They are not
-# needed again, and they would make the disk several hundred megabytes larger.
+# The first boot can leave downloads in the package cache (on a release whose base system
+# is managed by pkg, these are base system updates). They are not needed again, and they
+# would make the disk several hundred megabytes larger.
 pkg clean -a -y
 
 # FreeBSD runs /etc/rc.local at the end of every boot. The first-boot script of the job
@@ -43,5 +45,7 @@ ls -la /var/cache/nuageinit 2>&1 || true
 grep -H 'KEYWORD' /etc/rc.d/nuageinit /etc/rc.d/growfs 2>&1 || true
 grep -n 'rc.local' /etc/rc /etc/rc.d/* 2>&1 || true
 pkg -N
-pkg upgrade -n
+# Only a report. What it lists depends on the release, and a failure of the report must not
+# fail the job.
+pkg upgrade -n || true
 df -h /
