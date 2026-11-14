@@ -1,0 +1,168 @@
+name: Build
+
+# Images are built only when their own folder changed, or when somebody starts this
+# workflow by hand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image to build: the name of a folder under images/. Empty builds every image."
+        required: false
+        default: ""
+        type: string
+
+# Nothing by default. Each job asks for what it needs.
+permissions: {}
+
+jobs:
+  changed:
+    name: Find the images to build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      images: ${{ steps.list.outputs.images }}
+    steps:
+      # The whole history, because the script compares two commits that can be far apart.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test and lint the script
+        run: |
+          sh scripts/changed-images-test.sh
+          shellcheck --shell=sh -o all scripts/*.sh
+      - name: List the images
+        id: list
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          REQUESTED: ${{ inputs.image }}
+        run: |
+          set -eu
+          list="${RUNNER_TEMP}/images.txt"
+          case "${EVENT}" in
+          push)
+              sh scripts/changed-images.sh "${PUSH_BEFORE}" "${PUSH_SHA}" >"${list}"
+              ;;
+          pull_request)
+              # Compared from the point where the branch left the base branch, so that
+              # changes made on the base branch since then do not count as this pull
+              # request's own.
+              fork_point="$(git merge-base "${PR_BASE}" "${PR_HEAD}")"
+              sh scripts/changed-images.sh "${fork_point}" "${PR_HEAD}" >"${list}"
+              ;;
+          workflow_dispatch)
+              sh scripts/changed-images.sh --all >"${list}"
+              if [ -n "${REQUESTED}" ]; then
+                  # The name is looked up in the list of real images instead of being
+                  # put into a path, so it cannot point anywhere else.
+                  if ! grep -Fxq "${REQUESTED}" "${list}"; then
+                      echo "There is no image \"${REQUESTED}\": images/<name>/Dockerfile does not exist." >&2
+                      exit 1
+                  fi
+                  echo "${REQUESTED}" >"${list}"
+              fi
+              ;;
+          *)
+              echo "Unexpected event: ${EVENT}" >&2
+              exit 1
+              ;;
+          esac
+          images="$(jq -R . <"${list}" | jq -sc .)"
+          echo "Images to build: ${images}"
+          echo "images=${images}" >>"${GITHUB_OUTPUT}"
+
+  build:
+    name: Build ${{ matrix.image }} (${{ matrix.arch }})
+    needs: changed
+    if: needs.changed.outputs.images != '[]'
+    # Each CPU type is built on a machine of its own type and the two results are joined
+    # afterwards. Building arm64 on an amd64 machine would emulate the CPU and take many
+    # times longer.
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.changed.outputs.images) }}
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ${{ matrix.image }}
+      ARCH: ${{ matrix.arch }}
+      # The full commit in the tag keeps two builds of different commits apart. The
+      # architecture in the tag keeps the two halves of one build apart.
+      TAG: ghcr.io/splicefs/${{ matrix.image }}:${{ github.sha }}-${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        run: docker build --build-arg TARGETARCH="${ARCH}" -t "${TAG}" "images/${IMAGE}"
+      - name: Smoke test
+        run: |
+          set -eu
+          docker run --rm "${TAG}" uname -m
+          # An image can ship its own checks. They run inside the image, from a read-only mount.
+          if [ -x "images/${IMAGE}/test.sh" ]; then
+              docker run --rm -v "${PWD}/images/${IMAGE}:/t:ro" "${TAG}" sh /t/test.sh
+          fi
+      # Only the main branch publishes. A pull request is built and tested, nothing more,
+      # and a manual run from another branch must not replace the images people pull.
+      - name: Push
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "${TAG}"
+
+  publish:
+    name: Publish ${{ matrix.image }}
+    needs: [changed, build]
+    if: >-
+      needs.changed.outputs.images != '[]' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.changed.outputs.images) }}
+    permissions:
+      packages: write
+    env:
+      IMAGE: ${{ matrix.image }}
+      COMMIT: ${{ github.sha }}
+    steps:
+      - name: Join the two builds into one image and tag it
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          date="$(date -u +%Y-%m-%d)"
+          short="$(printf '%s' "${COMMIT}" | cut -c1-7)"
+          repository="ghcr.io/splicefs/${IMAGE}"
+          # One name that gives each machine its own CPU type. It is made from the two
+          # builds already in the registry, so nothing is built or emulated here.
+          docker buildx imagetools create \
+            -t "${repository}:latest" \
+            -t "${repository}:${date}-${short}" \
+            "${repository}:${COMMIT}-amd64" \
+            "${repository}:${COMMIT}-arm64"
+          docker buildx imagetools inspect "${repository}:latest"
