@@ -21,6 +21,7 @@ SpliceFS itself.
 | Image | Contents | Used by |
 | --- | --- | --- |
 | [`go-qemu`](images/go-qemu) | The Go toolchain image plus QEMU for amd64 and arm64 guests, FUSE, curl and xz | FreeBSD machine tests of server, client and packages |
+| [`freebsd-15.1`](images/freebsd-15.1) | A FreeBSD 15.1 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
 
 ## Pull an image
 
@@ -28,8 +29,9 @@ SpliceFS itself.
 docker pull ghcr.io/splicefs/go-qemu:latest
 ```
 
-Every image is published for amd64 and arm64. Docker picks the one that matches your
-machine.
+An image is published for amd64 and arm64, unless its folder holds a file `arch` that
+lists fewer CPU types. `freebsd-15.1` is amd64 only. Docker picks the one that matches
+your machine.
 
 ## Tags
 
@@ -42,7 +44,8 @@ machine.
 An image is built only when its folder under `images/` changes, or when somebody starts the
 Build workflow by hand. Nothing is rebuilt on a timer.
 
-- A pull request builds the changed images for amd64 and arm64 and publishes nothing.
+- A pull request builds the changed images for each of their CPU types and publishes
+  nothing.
 - A merge into `main` builds the changed images again and publishes them.
 - The Build workflow can be started by hand from the Actions tab, for one image or for all.
   A manual run publishes.

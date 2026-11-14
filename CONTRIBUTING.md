@@ -11,16 +11,26 @@ before work is spent on it.
 ## Add an image
 
 1. Make a folder `images/<name>/`. The folder name is the image name and must match
-   `^[a-z0-9][a-z0-9-]*$`.
+   `^[a-z0-9][a-z0-9.-]*$`.
 2. Put a `Dockerfile` in it. It takes the build argument `TARGETARCH` (`amd64` or `arm64`)
    when the packages differ by CPU type, and fails with a clear message for any other value.
    Set the labels `org.opencontainers.image.source` (this links the published image to this
    repository), `org.opencontainers.image.description` and `org.opencontainers.image.licenses`.
 3. Put a short `README.md` in it: what the image contains and which tests use it.
 4. Optionally put an executable `test.sh` in it. When it exists, the workflow runs it inside
-   the built image and the build fails if it fails.
-5. Add the image to the table in the top-level `README.md`.
-6. Open a pull request.
+   the built image and the build fails if it fails. The test gets `/dev/kvm` when the
+   runner has it, so it can boot a machine at full speed.
+5. Optionally put a file `arch` in it: the CPU types the image is built for, one per line
+   (`amd64`, `arm64`). Without the file the image is built for both. Any other word is an
+   error.
+6. Optionally put an executable `prepare.sh` in it, for an image that holds a file which can
+   only be made by booting a machine, because `docker build` cannot do that with hardware
+   help. The workflow runs `sh images/<name>/prepare.sh <arch>` on the runner, from the
+   repository root, before `docker build`. The script may download and compute, and leaves
+   its result inside `images/<name>/` for the Dockerfile to copy. Files it leaves behind
+   are ignored by git (`images/*/disk.qcow2`, `images/*/work/`).
+7. Add the image to the table in the top-level `README.md`.
+8. Open a pull request.
 
 ## Build and check on your own machine
 
@@ -33,10 +43,17 @@ docker build --build-arg TARGETARCH=amd64 -t go-qemu images/go-qemu
 Use `arm64` on an arm64 machine. Building the other CPU type on your machine means
 emulation and takes many times longer, so leave it to the pull request.
 
+An image with a `prepare.sh` needs it run first, the way the workflow does it:
+
+```sh
+sh images/<name>/prepare.sh amd64
+```
+
 The scripts are POSIX sh. Check them with what the Build workflow runs:
 
 ```sh
 sh scripts/changed-images-test.sh
+sh scripts/image-arches-test.sh
 shellcheck --shell=sh -o all scripts/*.sh
 ```
 
@@ -65,22 +82,24 @@ SpliceFS uses trunk development. There is one long-lived branch, `main`.
 Images are rebuilt only when their folder under `images/` changes, or when somebody starts
 the Build workflow by hand from the Actions tab. There is no scheduled rebuild.
 
-- A pull request builds each changed image for amd64 and arm64, runs its smoke test, and
-  publishes nothing.
+- A pull request builds each changed image for each of its CPU types (both, unless the
+  image has an `arch` file), runs its smoke test, and publishes nothing.
 - The merge into `main` builds the changed images again and publishes them as
   `ghcr.io/splicefs/<name>:latest` and `ghcr.io/splicefs/<name>:<date>-<short commit>`.
 - A manual run of the Build workflow takes an optional image name. Empty means every image.
   A manual run publishes.
-- Each CPU type is built on a runner of that type and the two results are joined into one
+- Each CPU type is built on a runner of that type and the results are joined into one
   tag afterwards. Between those steps the registry holds a tag `<full commit>-<arch>` for
   each CPU type. Do not use those tags.
+- An image with a `prepare.sh` is prepared on the runner first, once for each CPU type it
+  is built for. A change to such an image, or a manual run, repeats the preparation.
 - A change outside `images/` builds nothing.
 
 ## What CI checks
 
 | Workflow | What it does |
 | --- | --- |
-| Build | tests the script that picks the images, runs ShellCheck, builds the changed images for amd64 and arm64, and on `main` publishes them |
+| Build | tests the scripts that pick the images and their CPU types, runs ShellCheck, prepares and builds the changed images for each of their CPU types, and on `main` publishes them |
 | Security | CodeQL on the workflows, the tracked-files check, and dependency review on pull requests |
 | Scorecard | OpenSSF Scorecard, published weekly and on every push |
 

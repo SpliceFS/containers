@@ -125,8 +125,12 @@ $RECYCLE.BIN/
 *-E
 
 # --- Virtual machine images and caches ---------------------------------------------
-# The images built here hold QEMU, not machine disks. A disk image is several hundred
-# megabytes and never part of the source; these rules catch one that lands here.
+# A disk image is several hundred megabytes and never part of the source. An image folder
+# can hold a prepare.sh that makes a disk on the build runner. The disk and the folder
+# where the script works are named here so that the reason is on record; the
+# patterns below catch any other one that lands here.
+images/*/disk.qcow2
+images/*/work/
 *.qcow2
 *.img
 *.iso

@@ -25,6 +25,7 @@ jobs:
       contents: read
     outputs:
       images: ${{ steps.list.outputs.images }}
+      builds: ${{ steps.list.outputs.builds }}
     steps:
       # The whole history, because the script compares two commits that can be far apart.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -34,6 +35,7 @@ jobs:
       - name: Test and lint the script
         run: |
           sh scripts/changed-images-test.sh
+          sh scripts/image-arches-test.sh
           shellcheck --shell=sh -o all scripts/*.sh
       - name: List the images
         id: list
@@ -79,23 +81,36 @@ jobs:
           echo "Images to build: ${images}"
           echo "images=${images}" >>"${GITHUB_OUTPUT}"
 
+          # One entry per image and CPU type, each with the runner of its own type. An
+          # image lists its CPU types in images/<name>/arch, and builds for both
+          # without that file. The script runs on its own line, so that its failure
+          # stops this step.
+          objects="${RUNNER_TEMP}/builds.json"
+          arches="${RUNNER_TEMP}/arches.txt"
+          : >"${objects}"
+          while IFS= read -r name; do
+              sh scripts/image-arches.sh "${name}" >"${arches}"
+              jq -cR --arg image "${name}" '{
+                  image: $image,
+                  arch: .,
+                  runner: ({"amd64": "ubuntu-latest", "arm64": "ubuntu-24.04-arm"}[.])
+              }' <"${arches}" >>"${objects}"
+          done <"${list}"
+          builds="$(jq -sc . <"${objects}")"
+          echo "Builds: ${builds}"
+          echo "builds=${builds}" >>"${GITHUB_OUTPUT}"
+
   build:
     name: Build ${{ matrix.image }} (${{ matrix.arch }})
     needs: changed
     if: needs.changed.outputs.images != '[]'
-    # Each CPU type is built on a machine of its own type and the two results are joined
+    # Each CPU type is built on a machine of its own type and the results are joined
     # afterwards. Building arm64 on an amd64 machine would emulate the CPU and take many
-    # times longer.
+    # times longer. The list holds one entry for each CPU type of each image.
     strategy:
       fail-fast: false
       matrix:
-        image: ${{ fromJSON(needs.changed.outputs.images) }}
-        arch: [amd64, arm64]
-        include:
-          - arch: amd64
-            runner: ubuntu-latest
-          - arch: arm64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJSON(needs.changed.outputs.builds) }}
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -110,6 +125,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Some images hold a file that must be made by booting a machine, which
+      # "docker build" cannot do with hardware help. Their prepare.sh makes the file on
+      # the runner, inside images/<name>/, for the Dockerfile to copy.
+      - name: Prepare
+        run: |
+          set -eu
+          if [ -x "images/${IMAGE}/prepare.sh" ]; then
+              sh "images/${IMAGE}/prepare.sh" "${ARCH}"
+          fi
       - name: Build
         run: docker build --build-arg TARGETARCH="${ARCH}" -t "${TAG}" "images/${IMAGE}"
       - name: Smoke test
@@ -118,7 +142,13 @@ jobs:
           docker run --rm "${TAG}" uname -m
           # An image can ship its own checks. They run inside the image, from a read-only mount.
           if [ -x "images/${IMAGE}/test.sh" ]; then
-              docker run --rm -v "${PWD}/images/${IMAGE}:/t:ro" "${TAG}" sh /t/test.sh
+              set -- --rm -v "${PWD}/images/${IMAGE}:/t:ro"
+              # A check that boots a machine needs the hardware help of the runner to
+              # finish in seconds. Not every runner has it.
+              if [ -e /dev/kvm ]; then
+                  set -- "$@" --device /dev/kvm
+              fi
+              docker run "$@" "${TAG}" sh /t/test.sh
           fi
       # Only the main branch publishes. A pull request is built and tested, nothing more,
       # and a manual run from another branch must not replace the images people pull.
@@ -144,12 +174,17 @@ jobs:
       matrix:
         image: ${{ fromJSON(needs.changed.outputs.images) }}
     permissions:
+      contents: read
       packages: write
     env:
       IMAGE: ${{ matrix.image }}
       COMMIT: ${{ github.sha }}
     steps:
-      - name: Join the two builds into one image and tag it
+      # The checkout gives the script that names the CPU types of the image.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Join the builds into one image and tag it
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -158,11 +193,18 @@ jobs:
           date="$(date -u +%Y-%m-%d)"
           short="$(printf '%s' "${COMMIT}" | cut -c1-7)"
           repository="ghcr.io/splicefs/${IMAGE}"
-          # One name that gives each machine its own CPU type. It is made from the two
+          # Only the CPU types that were built for this image are joined. The same file
+          # decided what the build job built.
+          arches="${RUNNER_TEMP}/arches.txt"
+          sh scripts/image-arches.sh "${IMAGE}" >"${arches}"
+          set --
+          while IFS= read -r arch; do
+              set -- "$@" "${repository}:${COMMIT}-${arch}"
+          done <"${arches}"
+          # One name that gives each machine its own CPU type. It is made from the
           # builds already in the registry, so nothing is built or emulated here.
           docker buildx imagetools create \
             -t "${repository}:latest" \
             -t "${repository}:${date}-${short}" \
-            "${repository}:${COMMIT}-amd64" \
-            "${repository}:${COMMIT}-arm64"
+            "$@"
           docker buildx imagetools inspect "${repository}:latest"

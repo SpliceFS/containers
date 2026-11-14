@@ -68,8 +68,8 @@ while IFS= read -r name; do
     # so a badly named folder can still be deleted.
     if grep -Fxq "images/${name}/Dockerfile" "${work}/head-files"; then
         case "${name}" in
-        [!a-z0-9]* | *[!a-z0-9-]*)
-            echo "changed-images.sh: bad image name \"${name}\", use a-z, 0-9 and -, starting with a letter or digit" >&2
+        [!a-z0-9]* | *[!a-z0-9.-]*)
+            echo "changed-images.sh: bad image name \"${name}\", use a-z, 0-9, . and -, starting with a letter or digit" >&2
             exit 1
             ;;
         *)
