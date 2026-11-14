@@ -175,6 +175,12 @@ jobs:
       fail-fast: false
       matrix:
         image: ${{ fromJSON(needs.changed.outputs.images) }}
+    # One publish of an image at a time, so that the check below and the move of latest are
+    # never split by another run's. A waiting publish that a newer one replaces is not needed:
+    # the newer one is for a commit that changed the same image.
+    concurrency:
+      group: publish-${{ matrix.image }}
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
@@ -182,9 +188,11 @@ jobs:
       IMAGE: ${{ matrix.image }}
       COMMIT: ${{ github.sha }}
     steps:
-      # The checkout gives the script that names the CPU types of the image.
+      # The checkout gives the script that names the CPU types of the image, and the whole
+      # history for the check of newer commits.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Join the builds into one image and tag it
         env:
@@ -205,6 +213,15 @@ jobs:
           done <"${arches}"
           # One name that gives each machine its own CPU type. It is made from the
           # builds already in the registry, so nothing is built or emulated here.
+          # latest follows main, whatever order the runs finish in: a run whose commit is
+          # no longer the newest one that changed this image leaves latest to the run of
+          # that newer commit.
+          git fetch --quiet origin main
+          if sh scripts/changed-images.sh "${COMMIT}" origin/main | grep -qxF "${IMAGE}"; then
+              echo "A newer commit on main changed ${IMAGE}; its run moves latest."
+              docker buildx imagetools create -t "${repository}:${date}-${short}" "$@"
+              exit 0
+          fi
           docker buildx imagetools create \
             -t "${repository}:latest" \
             -t "${repository}:${date}-${short}" \
