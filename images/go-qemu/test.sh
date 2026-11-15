@@ -20,6 +20,7 @@ check "qemu-img" qemu-img --version
 check "fusermount3" fusermount3 -V
 check "curl" curl --version
 check "xz" xz --version
+check "zstd" zstd --version
 
 # Each CPU type gets only the emulator of its own package.
 machine="$(uname -m)"

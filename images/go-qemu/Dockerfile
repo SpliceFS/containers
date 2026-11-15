@@ -3,7 +3,7 @@ ARG TARGETARCH
 
 # The source label links the published image to this repository on GitHub.
 LABEL org.opencontainers.image.source="https://github.com/SpliceFS/containers" \
-      org.opencontainers.image.description="The Go toolchain plus QEMU for amd64 and arm64 guests, FUSE, curl and xz, for the SpliceFS machine tests" \
+      org.opencontainers.image.description="The Go toolchain plus QEMU for amd64 and arm64 guests, FUSE, curl, xz and zstd, for the SpliceFS machine tests and Linux checks" \
       org.opencontainers.image.licenses="MIT"
 
 # One layer, so that the package lists are gone from the image. The QEMU system
@@ -20,5 +20,5 @@ RUN set -eu; \
     esac; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        qemu-utils fuse3 curl xz-utils ${qemu_packages}; \
+        qemu-utils fuse3 curl xz-utils zstd ${qemu_packages}; \
     rm -rf /var/lib/apt/lists/*

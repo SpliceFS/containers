@@ -20,7 +20,7 @@ SpliceFS itself.
 
 | Image | Contents | Used by |
 | --- | --- | --- |
-| [`go-qemu`](images/go-qemu) | The Go toolchain image plus QEMU for amd64 and arm64 guests, FUSE, curl and xz | FreeBSD machine tests of server, client and packages |
+| [`go-qemu`](images/go-qemu) | The Go toolchain image plus QEMU for amd64 and arm64 guests, FUSE, curl, xz and zstd | FreeBSD machine tests of server, client and packages; `make check-linux` |
 | [`freebsd-15.1`](images/freebsd-15.1) | A FreeBSD 15.1 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
 | [`freebsd-14.5`](images/freebsd-14.5) | A FreeBSD 14.5 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
 
