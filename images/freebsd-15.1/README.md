@@ -10,7 +10,8 @@ For amd64 only. FreeBSD is tested on amd64 only, and on an arm64 machine this im
 would be emulated. The folder has an `arch` file that says so.
 
 Used by the FreeBSD jobs of the server, the client and the packages.
-Pull it with `docker pull ghcr.io/splicefs/freebsd-15.1:latest`.
+Pull it with `docker pull ghcr.io/splicefs/freebsd-15.1:<version>`, where the version is
+the one line of the file `version` in this folder.
 
 ## Files in the image
 
@@ -42,7 +43,7 @@ copy-on-write layer. `VM_TIMEOUT` (default 900) is the longest run in seconds. P
 emulated and much slower. `test.sh` is a complete small example.
 
 The disk is a snapshot of the day the image was built, so it does not get later FreeBSD
-patches until the image is built again.
+patches until the image gets a new version.
 
 ## How it is built
 
@@ -55,9 +56,12 @@ a compressed standalone disk, `disk.qcow2` (not committed to git). Then the Dock
 copies it into the image.
 
 The image is built only when this folder changes, or when somebody starts the Build
-workflow by hand with the image name `freebsd-15.1`.
+workflow by hand with the image name `freebsd-15.1`. A change to the folder comes with a
+greater number in `version`, and the image is published under that version. A published
+version never changes.
 
 Each FreeBSD release has a folder of its own, and the folders are copies on purpose: the
-build of an image sees only its own folder. Every file except `official` and `README.md`
-is identical in all of them, and `scripts/same-files.sh` checks that. To add a release,
-copy a folder, change `official` and `README.md`, and leave the other files alone.
+build of an image sees only its own folder. Every file except `official`, `README.md` and
+`version` is identical in all of them, and `scripts/same-files.sh` checks that. To add a
+release, copy a folder, change `official` and `README.md`, set `version` to `v1`, and leave
+the other files alone.

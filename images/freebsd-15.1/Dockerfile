@@ -1,11 +1,11 @@
-# The newest go-qemu image on purpose: this image is that image plus one disk, and it is
-# rebuilt by hand or when this folder changes, so it follows the QEMU of go-qemu from the
-# day it is built.
-# hadolint ignore=DL3007
-FROM ghcr.io/splicefs/go-qemu:latest
+# An exact version of go-qemu, as every image of this repository pins the images it is
+# built on. To move to a newer go-qemu, change the number here and raise the version of
+# this image. prepare.sh reads this line, so that the disk is made in the image that it
+# is copied into.
+FROM ghcr.io/splicefs/go-qemu:v1
 
 # The source label links the published image to this repository on GitHub.
-LABEL org.opencontainers.image.source="https://github.com/SpliceFS/containers" \
+LABEL org.opencontainers.image.source="https://github.com/SpliceFS/images" \
       org.opencontainers.image.description="The go-qemu image plus a FreeBSD disk that is already set up; the release is in /freebsd/official. For the SpliceFS FreeBSD machine tests (amd64 only)" \
       org.opencontainers.image.licenses="MIT"
 
