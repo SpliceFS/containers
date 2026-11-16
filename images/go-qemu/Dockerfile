@@ -2,7 +2,7 @@ FROM golang:1.27
 ARG TARGETARCH
 
 # The source label links the published image to this repository on GitHub.
-LABEL org.opencontainers.image.source="https://github.com/SpliceFS/containers" \
+LABEL org.opencontainers.image.source="https://github.com/SpliceFS/images" \
       org.opencontainers.image.description="The Go toolchain plus QEMU for amd64 and arm64 guests, FUSE, curl, xz and zstd, for the SpliceFS machine tests and Linux checks" \
       org.opencontainers.image.licenses="MIT"
 

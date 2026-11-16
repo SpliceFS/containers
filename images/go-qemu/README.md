@@ -6,4 +6,5 @@ The Go toolchain image (`golang`) plus the tools the SpliceFS machine tests need
 - FUSE (`fuse3`), curl, xz and zstd (zstd reads the FreeBSD package catalog in the release order check)
 
 Used by the FreeBSD machine tests of the server, the client and the packages.
-Pull it with `docker pull ghcr.io/splicefs/go-qemu:latest`. `test.sh` checks the tools inside the image.
+Pull it with `docker pull ghcr.io/splicefs/go-qemu:<version>`, where the version is the
+one line of the file `version` in this folder. `test.sh` checks the tools inside the image.
