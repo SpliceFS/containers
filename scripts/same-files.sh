@@ -1,6 +1,8 @@
 #!/bin/sh
 # Fails, naming the file, when a file differs between two of the folders images/freebsd-*.
-# The files "official" and "README.md" in the top of a folder are the only ones that may.
+# The files "official", "README.md" and "version" in the top of a folder are the only ones
+# that may. Each release has a version of its own, and they differ as soon as one release
+# gets a new version.
 #
 #   same-files.sh
 #
@@ -40,10 +42,10 @@ trap 'rm -rf "${work}"' EXIT
 trap 'exit 1' HUP INT TERM
 
 # list_files FOLDER OUTPUT writes the files of the folder, as paths relative to it, sorted.
-# The two files that may differ are left out. So are disk.qcow2 and work/, which prepare.sh
+# The three files that may differ are left out. So are disk.qcow2 and work/, which prepare.sh
 # leaves behind on a computer where it ran, and which git ignores.
 list_files() {
-    (cd "$1" && find . -type f ! -path ./official ! -path ./README.md \
+    (cd "$1" && find . -type f ! -path ./official ! -path ./README.md ! -path ./version \
         ! -path ./disk.qcow2 ! -path './work/*') >"$2"
     sort -o "$2" "$2"
 }
