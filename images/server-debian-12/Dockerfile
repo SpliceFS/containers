@@ -2,7 +2,7 @@ FROM debian:12
 
 # The source label links the published image to this repository on GitHub.
 LABEL org.opencontainers.image.source="https://github.com/SpliceFS/images" \
-      org.opencontainers.image.description="Debian 12 as a server that is up and running: systemd as process 1 and ca-certificates, nothing else. The system the SpliceFS deb packages are tested on" \
+      org.opencontainers.image.description="Debian 12 as a server that is up and running: the vendor's own minimal server install with the service manager as process 1, plus ca-certificates. The system the SpliceFS deb packages are tested on" \
       org.opencontainers.image.licenses="MIT"
 
 # The script is mounted for this one step instead of copied, so no layer of the image
