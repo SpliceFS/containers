@@ -155,4 +155,78 @@ check "no folder has nothing to compare" 0 ""
 two_folders
 check "an argument is a usage error" 2 "usage: same-files.sh" extra
 
+# Only the files of the FreeBSD folders that prepare.sh leaves behind may be missing, and
+# the Dockerfile is not one of the files that may differ there.
+two_folders
+put freebsd-15.1/Dockerfile "FROM other"
+check "a Dockerfile that differs between FreeBSD folders fails and is named" 1 "images/freebsd-15.1/Dockerfile differs"
+
+# server_folders FIRST SECOND SETUP makes two server image folders. The files they share
+# are the setup script and test.sh. The Dockerfile (its FROM line), README.md and version
+# differ, as they do in the repository.
+server_folders() {
+    reset
+    for name in "$1" "$2"; do
+        put "${name}/server-setup-$3.sh" "setup"
+        put "${name}/test.sh" "echo test"
+        put "${name}/Dockerfile" "FROM ${name}"
+        put "${name}/README.md" "readme of ${name}"
+        put "${name}/version" "version of ${name}"
+    done
+}
+
+server_folders server-debian-12 server-debian-13 deb
+check "server folders that differ only in Dockerfile, README.md and version pass" 0 ""
+
+server_folders server-debian-12 server-ubuntu-22.04 deb
+check "Debian and Ubuntu server folders are one group" 0 ""
+
+put server-ubuntu-22.04/server-setup-deb.sh "changed"
+check "a setup script that differs between server folders fails and is named" 1 \
+    "images/server-ubuntu-22.04/server-setup-deb.sh differs from images/server-debian-12/server-setup-deb.sh"
+
+server_folders server-debian-12 server-debian-13 deb
+put server-debian-13/test.sh "echo changed"
+check "a test.sh that differs between server folders fails and is named" 1 \
+    "images/server-debian-13/test.sh differs from images/server-debian-12/test.sh"
+
+server_folders server-debian-12 server-debian-13 deb
+put server-debian-13/official "one"
+check "official may differ only in the FreeBSD folders" 1 "images/server-debian-12/official is missing"
+
+# The three families are three groups, so their scripts differ from each other freely.
+server_folders server-debian-12 server-debian-13 deb
+for name in server-rocky-8 server-amazonlinux-2023 server-opensuse-leap-16.0; do
+    put "${name}/server-setup-rpm.sh" "rpm setup"
+    put "${name}/test.sh" "echo rpm test"
+    put "${name}/Dockerfile" "FROM ${name}"
+done
+for name in server-alpine-3.22 server-alpine-3.23; do
+    put "${name}/server-setup-apk.sh" "apk setup"
+    put "${name}/test.sh" "echo apk test"
+    put "${name}/Dockerfile" "FROM ${name}"
+done
+check "deb, rpm and apk server folders are compared only within their family" 0 ""
+
+put server-opensuse-leap-16.0/server-setup-rpm.sh "changed"
+put server-alpine-3.23/test.sh "echo changed"
+check "a difference in the rpm family is found" 1 \
+    "images/server-opensuse-leap-16.0/server-setup-rpm.sh differs from images/server-amazonlinux-2023/server-setup-rpm.sh"
+check "a difference in the apk family is found in the same run" 1 \
+    "images/server-alpine-3.23/test.sh differs from images/server-alpine-3.22/test.sh"
+
+server_folders server-rocky-9 server-rocky-10 rpm
+put server-amazonlinux-2023/server-setup-rpm.sh "setup"
+put server-amazonlinux-2023/test.sh "echo test"
+check "Rocky, Amazon Linux and openSUSE server folders are one group" 0 ""
+
+server_folders server-alpine-3.22 server-alpine-3.24 apk
+check "Alpine server folders are one group" 0 ""
+
+# A group is also found next to folders of other images and of the other groups.
+server_folders server-debian-12 server-debian-13 deb
+put go-qemu/Dockerfile "FROM other"
+put freebsd-14.5/Dockerfile "FROM base"
+check "a lone folder of another group has nothing to compare" 0 ""
+
 echo "${passed} checks passed"
