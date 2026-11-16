@@ -1,7 +1,7 @@
 # Contributing to SpliceFS images
 
-This repository holds the definitions of the container images that the SpliceFS tests run
-in, and the workflow that builds and publishes them.
+This repository holds the definitions of the container images that the SpliceFS builds,
+checks and tests run in, and the workflow that builds and publishes them.
 
 ## Before you start
 
