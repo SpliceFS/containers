@@ -1,8 +1,8 @@
-# SpliceFS containers
+# SpliceFS images
 
-[![Build](https://github.com/SpliceFS/containers/actions/workflows/build.yml/badge.svg)](https://github.com/SpliceFS/containers/actions/workflows/build.yml)
-[![Security](https://github.com/SpliceFS/containers/actions/workflows/security.yml/badge.svg)](https://github.com/SpliceFS/containers/actions/workflows/security.yml)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/SpliceFS/containers/badge)](https://scorecard.dev/viewer/?uri=github.com/SpliceFS/containers)
+[![Build](https://github.com/SpliceFS/images/actions/workflows/build.yml/badge.svg)](https://github.com/SpliceFS/images/actions/workflows/build.yml)
+[![Security](https://github.com/SpliceFS/images/actions/workflows/security.yml/badge.svg)](https://github.com/SpliceFS/images/actions/workflows/security.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/SpliceFS/images/badge)](https://scorecard.dev/viewer/?uri=github.com/SpliceFS/images)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Ready-made container images for the tests of [SpliceFS](https://splicefs.org).
@@ -11,7 +11,7 @@ The tests of the SpliceFS repositories run inside containers. Until now each run
 stock image and installed the tools the tests need into it: QEMU, a service manager,
 package build tools. That took minutes on every run. This repository defines images that
 already have those tools in them. A workflow builds them and publishes them to the GitHub
-container registry as `ghcr.io/splicefs/<image>`.
+container registry as `ghcr.io/splicefs/<image>:<version>`.
 
 The images are test tools for the SpliceFS repositories. They are not meant for running
 SpliceFS itself.
@@ -27,18 +27,31 @@ SpliceFS itself.
 ## Pull an image
 
 ```sh
-docker pull ghcr.io/splicefs/go-qemu:latest
+docker pull ghcr.io/splicefs/go-qemu:v1
 ```
 
 An image is published for amd64 and arm64, unless its folder holds a file `arch` that
 lists fewer CPU types. `freebsd-15.1` and `freebsd-14.5` are amd64 only. Docker picks the
 one that matches your machine.
 
-## Tags
+## Versions
 
-- `latest` is the newest build of the image.
-- One tag per build is made of the date and the short commit, for example
-  `2026-11-14-1a2b3c4`. Use it to pin a test to a known build.
+Every image has a version: `v1`, `v2`, `v3` and so on. It is the one line of the file
+`version` in the folder of the image, and the image is published as
+`ghcr.io/splicefs/<image>:<version>`. There is no `latest` tag and there are no dated tags.
+
+- A published version never changes. Any change to an image is published as the next
+  version, never over an old one.
+- Old versions stay available, so several versions of an image can be in use at the same
+  time.
+- A repository that uses an image pins the exact version it needs, and moves to a newer
+  version when it chooses to. An image that is built on another image of this repository
+  does the same: its `FROM` line names the version of the base, as in
+  `FROM ghcr.io/splicefs/go-qemu:v1`.
+
+To change an image: edit its folder, raise the number in its `version` file, and merge the
+pull request. The merge publishes the new version. The old versions stay as they are, and
+the repositories that use the image keep the version they pin until they change it.
 
 ## When images are built
 
@@ -46,13 +59,18 @@ An image is built only when its folder under `images/` changes, or when somebody
 Build workflow by hand. Nothing is rebuilt on a timer.
 
 - A pull request builds the changed images for each of their CPU types and publishes
-  nothing.
-- A merge into `main` builds the changed images again and publishes them.
+  nothing. It fails when a changed image does not have a greater version than it had where
+  the branch started.
+- A merge into `main` builds the changed images again and publishes each one under its
+  version.
 - The Build workflow can be started by hand from the Actions tab, for one image or for all.
-  A manual run publishes.
+  A manual run publishes too, but a version that is already published is never published
+  again: that image fails with an error, and a change needs a new version.
 
-The gap this leaves: an image does not pick up a new base image or new package versions
-until its folder changes or someone runs the Build workflow by hand.
+The gap this leaves: a published version holds the base image and the package versions of
+the day it was built, and never gets newer ones. An image only gets new base packages with
+a new version. Raise the number in its `version` file, with or without another change, and
+merge.
 
 To add an image, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

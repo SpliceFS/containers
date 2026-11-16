@@ -41,8 +41,8 @@ reset() {
     mkdir -p "${work}/images"
 }
 
-# two_folders makes freebsd-14.5 and freebsd-15.1 with the same files, and an "official"
-# and a README.md that differ, as they do in the repository.
+# two_folders makes freebsd-14.5 and freebsd-15.1 with the same files, and an "official",
+# a README.md and a "version" that differ, as they do in the repository.
 two_folders() {
     reset
     for name in freebsd-14.5 freebsd-15.1; do
@@ -50,6 +50,7 @@ two_folders() {
         put "${name}/test.sh" "echo test"
         put "${name}/official" "release of ${name}"
         put "${name}/README.md" "readme of ${name}"
+        put "${name}/version" "version of ${name}"
     done
 }
 
@@ -81,7 +82,7 @@ check() {
 }
 
 two_folders
-check "folders that differ only in official and README.md pass" 0 ""
+check "folders that differ only in official, README.md and version pass" 0 ""
 
 # The script can be started from another folder.
 status=0
@@ -107,6 +108,11 @@ two_folders
 put freebsd-14.5/sub/deep/file "one"
 put freebsd-15.1/sub/deep/file "two"
 check "a difference in a subfolder is named with its path" 1 "images/freebsd-15.1/sub/deep/file differs"
+
+two_folders
+put freebsd-14.5/sub/version "one"
+put freebsd-15.1/sub/version "two"
+check "only the version of the top of a folder may differ" 1 "images/freebsd-15.1/sub/version differs"
 
 two_folders
 put freebsd-14.5/sub/official "one"
