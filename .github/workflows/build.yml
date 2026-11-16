@@ -1,7 +1,8 @@
 name: Build
 
 # Images are built only when their own folder changed, or when somebody starts this
-# workflow by hand.
+# workflow by hand. An image is published only under its version, the one line of
+# images/<name>/version, and a published version never changes.
 on:
   push:
     branches: [main]
@@ -32,20 +33,43 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Test and lint the script
+      - name: Test and lint the scripts
         run: |
-          sh scripts/changed-images-test.sh
-          sh scripts/image-arches-test.sh
-          sh scripts/same-files-test.sh
+          for test in scripts/*-test.sh; do
+              sh "${test}"
+          done
           sh scripts/same-files.sh
           shellcheck --shell=sh -o all scripts/*.sh
+      # Compared from the point where the branch left the base branch, so that changes
+      # made on the base branch since then do not count as this pull request's own.
+      - name: Find the fork point
+        id: fork
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          point="$(git merge-base "${PR_BASE}" "${PR_HEAD}")"
+          echo "point=${point}" >>"${GITHUB_OUTPUT}"
+      # A published version never changes, so a changed image needs a greater version, and an
+      # image built on another image of this repository needs a version of it that exists.
+      # The registry is asked without a login, because the images are public.
+      - name: Check the versions of the changed images
+        if: github.event_name == 'pull_request'
+        env:
+          FORK_POINT: ${{ steps.fork.outputs.point }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          sh scripts/check-version-bump.sh "${FORK_POINT}" "${PR_HEAD}"
+          sh scripts/check-base-versions.sh "${FORK_POINT}" "${PR_HEAD}"
       - name: List the images
         id: list
         env:
           EVENT: ${{ github.event_name }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_SHA: ${{ github.sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          FORK_POINT: ${{ steps.fork.outputs.point }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           REQUESTED: ${{ inputs.image }}
         run: |
@@ -56,11 +80,7 @@ jobs:
               sh scripts/changed-images.sh "${PUSH_BEFORE}" "${PUSH_SHA}" >"${list}"
               ;;
           pull_request)
-              # Compared from the point where the branch left the base branch, so that
-              # changes made on the base branch since then do not count as this pull
-              # request's own.
-              fork_point="$(git merge-base "${PR_BASE}" "${PR_HEAD}")"
-              sh scripts/changed-images.sh "${fork_point}" "${PR_HEAD}" >"${list}"
+              sh scripts/changed-images.sh "${FORK_POINT}" "${PR_HEAD}" >"${list}"
               ;;
           workflow_dispatch)
               sh scripts/changed-images.sh --all >"${list}"
@@ -175,9 +195,8 @@ jobs:
       fail-fast: false
       matrix:
         image: ${{ fromJSON(needs.changed.outputs.images) }}
-    # One publish of an image at a time, so that the check below and the move of latest are
-    # never split by another run's. A waiting publish that a newer one replaces is not needed:
-    # the newer one is for a commit that changed the same image.
+    # One publish of an image at a time, so that the check of the registry below and the
+    # publish that follows it are never split by another run's.
     concurrency:
       group: publish-${{ matrix.image }}
       cancel-in-progress: false
@@ -188,11 +207,10 @@ jobs:
       IMAGE: ${{ matrix.image }}
       COMMIT: ${{ github.sha }}
     steps:
-      # The checkout gives the script that names the CPU types of the image, and the whole
-      # history for the check of newer commits.
+      # The checkout gives the scripts that name the version and the CPU types of the
+      # image, at the commit that was built.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
       - name: Join the builds into one image and tag it
         env:
@@ -200,9 +218,12 @@ jobs:
         run: |
           set -eu
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          date="$(date -u +%Y-%m-%d)"
-          short="$(printf '%s' "${COMMIT}" | cut -c1-7)"
           repository="ghcr.io/splicefs/${IMAGE}"
+          # The image is published under its version and no other name. A published
+          # version never changes, so a version that is already there stops this image
+          # before anything is published.
+          sh scripts/check-unpublished.sh "${IMAGE}"
+          version="$(sh scripts/image-version.sh "${IMAGE}")"
           # Only the CPU types that were built for this image are joined. The same file
           # decided what the build job built.
           arches="${RUNNER_TEMP}/arches.txt"
@@ -213,20 +234,8 @@ jobs:
           done <"${arches}"
           # One name that gives each machine its own CPU type. It is made from the
           # builds already in the registry, so nothing is built or emulated here.
-          # latest follows main, whatever order the runs finish in: a run whose commit is
-          # no longer the newest one that changed this image leaves latest to the run of
-          # that newer commit.
-          git fetch --quiet origin main
-          if sh scripts/changed-images.sh "${COMMIT}" origin/main | grep -qxF "${IMAGE}"; then
-              echo "A newer commit on main changed ${IMAGE}; its run moves latest."
-              docker buildx imagetools create -t "${repository}:${date}-${short}" "$@"
-              exit 0
-          fi
-          docker buildx imagetools create \
-            -t "${repository}:latest" \
-            -t "${repository}:${date}-${short}" \
-            "$@"
-          docker buildx imagetools inspect "${repository}:latest"
+          docker buildx imagetools create -t "${repository}:${version}" "$@"
+          docker buildx imagetools inspect "${repository}:${version}"
 
   # The branch rule needs one check with a fixed name: the build jobs are named after the
   # images they build, and those differ from one change to the next. This job fails unless
