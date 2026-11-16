@@ -22,6 +22,10 @@ case "$#" in
     ;;
 2)
     rev="$2"
+    # An empty name for git would read the index, not a commit.
+    if [ -z "${rev}" ]; then
+        usage
+    fi
     ;;
 *)
     usage

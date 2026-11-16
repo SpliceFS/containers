@@ -131,6 +131,7 @@ mkdir -p "${repo}/images/folder/version"
 check "a version that is a folder is an error" 1 "" "is not a file" folder
 
 check "no arguments is a usage error" 2 "" "usage: image-version.sh"
+check "an empty commit is a usage error, it would read the index" 2 "" "usage: image-version.sh" alpha ""
 check "three arguments are a usage error" 2 "" "usage: image-version.sh" alpha "${c1}" extra
 
 echo "${passed} checks passed"
