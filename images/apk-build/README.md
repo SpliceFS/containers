@@ -13,8 +13,8 @@ and builds, signs and indexes a small package with a key that it makes itself.
 
 ## Who it runs as
 
-The image does not run as root. It starts as the user `build` (uid 1000, home
-`/home/build`), a member of the group `abuild`. Three ways to run it:
+The image does not run as root. It starts as the user `build` (uid 1000, home `/tmp`), a
+member of the group `abuild`. Three ways to run it:
 
 ```sh
 # 1. As the default user.
@@ -33,9 +33,9 @@ docker run --rm --user 0 ghcr.io/splicefs/apk-build:v1 id
 
 A user that is not in `/etc/passwd` works because no setting depends on the user entry:
 
-- `HOME` is set to `/home/build` in the image. Without it Docker would give such a user `/` as its home.
-- `/home/build` has mode 1777: every user may create files there, and only the owner may remove them, like `/tmp`.
-- `/etc/apk/keys`, the folder of the public keys that apk trusts, has mode 1777 too, so that a script can add the public key of a repository before `apk index` checks the packages against it.
+- `HOME` is set to `/tmp` in the image. Without it Docker would give such a user `/` as its home, where it cannot write.
+- `/tmp` is the folder that every Linux system lets all users write to, and only the owner of a file may remove it. The image changes the mode of no folder, so no folder of it is writable by everyone but `/tmp`; `test.sh` checks that.
+- `/etc/apk/keys`, the folder of the public keys that apk trusts, belongs to root and only root may change it, as on any Alpine system. A script that runs as a user does not copy a key there. It names a folder with the public key to every `apk` command that checks a signature: `apk --keys-dir /keys index ...`, `apk --keys-dir /keys verify ...`, `apk --keys-dir /keys add ...`. Without that, `apk index` stops with "UNTRUSTED signature".
 
 Name the signing key in the environment or on the command line, because a user that is not
 in the image has no `~/.abuild` with a key in it and no membership of the group `abuild`.
