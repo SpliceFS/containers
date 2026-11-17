@@ -228,27 +228,35 @@ jobs:
           # decided what the build job built.
           arches="${RUNNER_TEMP}/arches.txt"
           sh scripts/image-arches.sh "${IMAGE}" >"${arches}"
-          set --
-          while IFS= read -r arch; do
-              set -- "$@" "${repository}:${COMMIT}-${arch}"
-          done <"${arches}"
           # One name that gives each machine its own CPU type. It is made from the
           # builds already in the registry, so nothing is built or emulated here.
-          docker buildx imagetools create -t "${repository}:${version}" "$@"
+          #
           # Publishing vX.Y.Z also moves the tags vX.Y and vX to it, so that a repository
           # that names vX.Y or vX gets the new image. Moving both is always right: the pull
           # request check lets the version of an image only grow, so the version published
           # from main is greater than every version published before it. That makes it the
           # newest of its minor line and of its major line, and the tags never move to an
-          # older image. They are made from the full tag that was just created, so all
-          # three names hold the same manifest.
+          # older image.
+          #
+          # The moving tags are written first and the full tag last. check-unpublished.sh
+          # refuses a full tag that exists, so if a step fails before the full tag is
+          # written, running the job again repeats every step; written the other way round,
+          # a failure after the full tag would leave vX.Y and vX behind for good.
           moving="${RUNNER_TEMP}/moving-tags.txt"
           sh scripts/moving-tags.sh "${version}" >"${moving}"
           set --
           while IFS= read -r tag; do
               set -- "$@" -t "${repository}:${tag}"
           done <"${moving}"
-          docker buildx imagetools create "$@" "${repository}:${version}"
+          while IFS= read -r arch; do
+              set -- "$@" "${repository}:${COMMIT}-${arch}"
+          done <"${arches}"
+          docker buildx imagetools create "$@"
+          set --
+          while IFS= read -r arch; do
+              set -- "$@" "${repository}:${COMMIT}-${arch}"
+          done <"${arches}"
+          docker buildx imagetools create -t "${repository}:${version}" "$@"
           docker buildx imagetools inspect "${repository}:${version}"
 
   # The branch rule needs one check with a fixed name: the build jobs are named after the

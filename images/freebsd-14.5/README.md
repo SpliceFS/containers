@@ -13,8 +13,9 @@ For amd64 only. FreeBSD is tested on amd64 only, and on an arm64 machine this im
 would be emulated. The folder has an `arch` file that says so.
 
 Used by the FreeBSD jobs of the server, the client and the packages.
-Pull it with `docker pull ghcr.io/splicefs/freebsd-14.5:<version>`, where the version is
-the one line of the file `version` in this folder.
+Pull it with `docker pull ghcr.io/splicefs/freebsd-14.5:v1`. The tag `v1` follows every
+release of major version 1; `v1.0` and `v1.0.0` name a minor version and one exact
+release. The file `version` in this folder holds the exact one.
 
 ## Files in the image
 
@@ -60,11 +61,11 @@ copies it into the image.
 
 The image is built only when this folder changes, or when somebody starts the Build
 workflow by hand with the image name `freebsd-14.5`. A change to the folder comes with a
-greater number in `version`, and the image is published under that version. A published
+greater version in `version`, and the image is published under that version. A published
 version never changes.
 
 Each FreeBSD release has a folder of its own, and the folders are copies on purpose: the
 build of an image sees only its own folder. Every file except `official`, `README.md` and
 `version` is identical in all of them, and `scripts/same-files.sh` checks that. To add a
-release, copy a folder, change `official` and `README.md`, set `version` to `v1`, and leave
+release, copy a folder, change `official` and `README.md`, set `version` to `v1.0.0`, and leave
 the other files alone.
