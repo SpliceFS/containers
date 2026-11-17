@@ -28,7 +28,7 @@ git -C "${repo}" config commit.gpgsign false
 
 # The script finds the other scripts, and they find the repository, from their own place.
 mkdir -p "${repo}/scripts"
-for name in check-base-versions changed-images image-version version-valid tag-published; do
+for name in check-base-versions changed-images image-version version-valid moving-tags tag-published; do
     cp "${script_dir}/${name}.sh" "${repo}/scripts/${name}.sh"
 done
 script="${repo}/scripts/check-base-versions.sh"
@@ -128,18 +128,18 @@ TEXTS
     echo "ok - ${description}"
 }
 
-# The base image "base" is at v1 and published. "app" is built on it. "other" is built on
+# The base image "base" is at v1.0.0 and published. "app" is built on it. "other" is built on
 # nothing of ours.
 put images/base/Dockerfile "FROM golang:1.27"
-put images/base/version "v1"
-put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v1"
-put images/app/version "v1"
+put images/base/version "v1.0.0"
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v1.0.0"
+put images/app/version "v1.0.0"
 put images/other/Dockerfile "FROM golang:1.27"
-put images/other/version "v1"
+put images/other/version "v1.0.0"
 commit "start"
 c0="${rev}"
 
-published "ghcr.io/splicefs/base:v1"
+published "ghcr.io/splicefs/base:v1.0.0"
 
 put images/other/README.md "about other"
 commit "change other"
@@ -150,42 +150,84 @@ asked_nothing "an image built on nothing of ours"
 put images/app/README.md "about app"
 commit "change app"
 c2="${rev}"
-check "an image built on a published version passes" 0 "images/app: ghcr.io/splicefs/base:v1" -- "${c1}" "${c2}"
+check "an image built on a published version passes" 0 "images/app: ghcr.io/splicefs/base:v1.0.0" -- "${c1}" "${c2}"
 
 published
 check "an image built on a version that is not published fails" 1 \
-    "images/app/Dockerfile: ghcr.io/splicefs/base:v1 is not published" -- "${c1}" "${c2}"
+    "images/app/Dockerfile: ghcr.io/splicefs/base:v1.0.0 is not published" -- "${c1}" "${c2}"
 
-published "ghcr.io/splicefs/base:v1"
-put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v9"
+published "ghcr.io/splicefs/base:v1.0.0"
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v9.0.0"
 commit "app on a version that does not exist"
 c3="${rev}"
 check "a version that nobody publishes fails" 1 \
-    "images/app/Dockerfile: ghcr.io/splicefs/base:v9 is not published" -- "${c2}" "${c3}"
+    "images/app/Dockerfile: ghcr.io/splicefs/base:v9.0.0 is not published" -- "${c2}" "${c3}"
 
 # The same change publishes the base version: the registry does not have it yet.
 put images/base/README.md "about base"
-put images/base/version "v2"
-put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v2"
-commit "base v2 and app on it"
+put images/base/version "v2.0.0"
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v2.0.0"
+commit "base v2.0.0 and app on it"
 c4="${rev}"
-published "ghcr.io/splicefs/base:v1"
+published "ghcr.io/splicefs/base:v1.0.0"
 check "a version that this change publishes passes without the registry" 0 \
-    "images/app: ghcr.io/splicefs/base:v2" -- "${c2}" "${c4}"
+    "images/app: ghcr.io/splicefs/base:v2.0.0" -- "${c2}" "${c4}"
 asked_nothing "a version that this change publishes"
 
-put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v3"
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v3.0.0"
 commit "app on a version that nobody publishes"
 c5="${rev}"
 check "a version that is neither published nor published by this change fails" 1 \
-    "images/app/Dockerfile: ghcr.io/splicefs/base:v3 is not published" -- "${c2}" "${c5}"
+    "images/app/Dockerfile: ghcr.io/splicefs/base:v3.0.0 is not published" -- "${c2}" "${c5}"
 
+# The tags that move are satisfied by the version that this change publishes: v2 and v2.0
+# by v2.0.0. The registry does not hold them yet. The version of the base is v2.0.0 here.
+published "ghcr.io/splicefs/base:v1.0.0"
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v2"
+commit "app on the major tag of the version this change publishes"
+check "the major tag of a version that this change publishes passes without the registry" 0 \
+    "images/app: ghcr.io/splicefs/base:v2" -- "${c2}" "${rev}"
+asked_nothing "the major tag of a version that this change publishes"
+
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v2.0"
+commit "app on the minor tag of the version this change publishes"
+published "ghcr.io/splicefs/base:v1.0.0"
+check "the minor tag of a version that this change publishes passes without the registry" 0 \
+    "images/app: ghcr.io/splicefs/base:v2.0" -- "${c2}" "${rev}"
+asked_nothing "the minor tag of a version that this change publishes"
+
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v2.1"
+commit "app on a minor tag that this change does not publish"
+check "a minor tag of the same major that this change does not publish fails" 1 \
+    "images/app/Dockerfile: ghcr.io/splicefs/base:v2.1 is not published" -- "${c2}" "${rev}"
+
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v3"
+commit "app on a major tag that this change does not publish"
+check "a major tag that this change does not publish fails" 1 \
+    "images/app/Dockerfile: ghcr.io/splicefs/base:v3 is not published" -- "${c2}" "${rev}"
+
+# A tag of another line is for the registry to say, though the base is in the change.
 put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v1"
-commit "app stays on v1"
-c6="${rev}"
+commit "app on the major tag of an older line"
 published "ghcr.io/splicefs/base:v1"
+check "the major tag of an older line passes when the registry holds it" 0 \
+    "images/app: ghcr.io/splicefs/base:v1" -- "${c2}" "${rev}"
+published
+check "the major tag of an older line fails when the registry does not hold it" 1 \
+    "images/app/Dockerfile: ghcr.io/splicefs/base:v1 is not published" -- "${c2}" "${rev}"
+
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v1.0"
+commit "app on the minor tag of an older line"
+published "ghcr.io/splicefs/base:v1.0"
+check "the minor tag of an older line passes when the registry holds it" 0 \
+    "images/app: ghcr.io/splicefs/base:v1.0" -- "${c2}" "${rev}"
+
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v1.0.0"
+commit "app stays on v1.0.0"
+c6="${rev}"
+published "ghcr.io/splicefs/base:v1.0.0"
 check "an older published version passes while the base is changed" 0 \
-    "images/app: ghcr.io/splicefs/base:v1" -- "${c1}" "${c6}"
+    "images/app: ghcr.io/splicefs/base:v1.0.0" -- "${c1}" "${c6}"
 
 # Whether a tag is published is for the registry to say, also for a base that this change
 # does not touch.
@@ -194,39 +236,40 @@ commit "change app again"
 c7="${rev}"
 published
 check "an unchanged base is not trusted without the registry" 1 \
-    "images/app/Dockerfile: ghcr.io/splicefs/base:v1 is not published" -- "${c6}" "${c7}"
+    "images/app/Dockerfile: ghcr.io/splicefs/base:v1.0.0 is not published" -- "${c6}" "${c7}"
 
-for ref in "ghcr.io/splicefs/base:latest" "ghcr.io/splicefs/base" "ghcr.io/splicefs/base:v01" \
-    "ghcr.io/splicefs/base:2026-11-14-1a2b3c4" "ghcr.io/splicefs/base@sha256:0123456789abcdef" \
-    "ghcr.io/splicefs/base:\${VERSION}"; do
-    published "ghcr.io/splicefs/base:latest" "ghcr.io/splicefs/base:v01" "ghcr.io/splicefs/base"
+for ref in "ghcr.io/splicefs/base:latest" "ghcr.io/splicefs/base" "ghcr.io/splicefs/base:v01.0.0" \
+    "ghcr.io/splicefs/base:v1.02" "ghcr.io/splicefs/base:v1.0.0.0" "ghcr.io/splicefs/base:v1." \
+    "ghcr.io/splicefs/base:1.0.0" "ghcr.io/splicefs/base:2026-11-14-1a2b3c4" \
+    "ghcr.io/splicefs/base@sha256:0123456789abcdef" "ghcr.io/splicefs/base:\${VERSION}"; do
+    published "ghcr.io/splicefs/base:latest" "ghcr.io/splicefs/base:v01.0.0" "ghcr.io/splicefs/base"
     put images/app/Dockerfile "FROM ${ref}"
     commit "app on ${ref}"
     check "a reference that is not a version fails: ${ref}" 1 \
-        "images/app/Dockerfile: ${ref} does not name a version" "as in ghcr.io/splicefs/base:v1" -- "${c7}" "${rev}"
+        "images/app/Dockerfile: ${ref} does not name a version" "use vX, vX.Y or vX.Y.Z, as in ghcr.io/splicefs/base:v1.0.0" -- "${c7}" "${rev}"
     asked_nothing "a reference that is not a version"
 done
 
-put images/app/Dockerfile "FROM --platform=linux/amd64 ghcr.io/splicefs/base:v1 AS build
+put images/app/Dockerfile "FROM --platform=linux/amd64 ghcr.io/splicefs/base:v1.0.0 AS build
 FROM golang:1.27"
 commit "app with a platform and a second stage"
 c8="${rev}"
-published "ghcr.io/splicefs/base:v1"
-check "a platform flag and an alias are skipped" 0 "images/app: ghcr.io/splicefs/base:v1" -- "${c7}" "${c8}"
+published "ghcr.io/splicefs/base:v1.0.0"
+check "a platform flag and an alias are skipped" 0 "images/app: ghcr.io/splicefs/base:v1.0.0" -- "${c7}" "${c8}"
 
-put images/app/Dockerfile "from ghcr.io/splicefs/base:v1"
+put images/app/Dockerfile "from ghcr.io/splicefs/base:v1.0.0"
 commit "app with a lower case from"
 c9="${rev}"
-check "a lower case from is read" 0 "images/app: ghcr.io/splicefs/base:v1" -- "${c7}" "${c9}"
+check "a lower case from is read" 0 "images/app: ghcr.io/splicefs/base:v1.0.0" -- "${c7}" "${c9}"
 
 put images/app/Dockerfile "# FROM ghcr.io/splicefs/base:latest
-FROM ghcr.io/splicefs/base:v1
+FROM ghcr.io/splicefs/base:v1.0.0
 RUN echo ghcr.io/splicefs/base:latest"
 commit "app with the reference elsewhere"
 c10="${rev}"
-check "a reference in a comment or another instruction is not a base" 0 "images/app: ghcr.io/splicefs/base:v1" -- "${c7}" "${c10}"
+check "a reference in a comment or another instruction is not a base" 0 "images/app: ghcr.io/splicefs/base:v1.0.0" -- "${c7}" "${c10}"
 
-put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v1 AS first
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v1.0.0 AS first
 FROM ghcr.io/splicefs/base:latest AS second"
 commit "app with two stages"
 c11="${rev}"
@@ -248,17 +291,17 @@ c14="${rev}"
 check "an image that this change does not touch is not checked" 0 -- "${c13}" "${c14}"
 
 # Not knowing is not the same as not published.
-published "ghcr.io/splicefs/base:v1"
+published "ghcr.io/splicefs/base:v1.0.0"
 : >"${work}/registry/broken"
-put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v1"
-commit "app on v1"
+put images/app/Dockerfile "FROM ghcr.io/splicefs/base:v1.0.0"
+commit "app on v1.0.0"
 c15="${rev}"
 check "a registry that cannot be asked stops the check" 3 \
-    "could not ask the registry about ghcr.io/splicefs/base:v1" -- "${c14}" "${c15}"
+    "could not ask the registry about ghcr.io/splicefs/base:v1.0.0" -- "${c14}" "${c15}"
 
 published
 check "an all-zero base checks every image" 1 \
-    "images/app/Dockerfile: ghcr.io/splicefs/base:v1 is not published" -- "0000000000000000000000000000000000000000" "${c15}"
+    "images/app/Dockerfile: ghcr.io/splicefs/base:v1.0.0 is not published" -- "0000000000000000000000000000000000000000" "${c15}"
 
 check "no arguments is a usage error" 2 "usage: check-base-versions.sh" --
 check "one argument is a usage error" 2 "usage: check-base-versions.sh" -- "${c1}"

@@ -1,7 +1,7 @@
-# An exact version of go-qemu, as every image of this repository pins the images it is
-# built on. To move to a newer go-qemu, change the number here and raise the version of
-# this image. prepare.sh reads this line, so that the disk is made in the image that it
-# is copied into.
+# The major version of go-qemu: a minor or patch release of it reaches this image the next
+# time this image is built. To move to a newer major version, change the number here and
+# raise the version of this image. prepare.sh reads this line, so that the disk is made in
+# the image that it is copied into.
 FROM ghcr.io/splicefs/go-qemu:v1
 
 # The source label links the published image to this repository on GitHub.

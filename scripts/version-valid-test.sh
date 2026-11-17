@@ -35,32 +35,42 @@ check() {
     echo "ok - ${description}"
 }
 
-check "v1 is a version" 0 v1
-check "v2 is a version" 0 v2
-check "v10 is a version" 0 v10
-check "v123 is a version" 0 v123
-check "v90 is a version" 0 v90
+check "v1.0.0 is a version" 0 v1.0.0
+check "v1.2.3 is a version" 0 v1.2.3
+check "v10.20.30 is a version" 0 v10.20.30
+check "v0.0.0 is a version, zero is a number" 0 v0.0.0
+check "v0.1.0 is a version" 0 v0.1.0
+check "a number of many digits is a version" 0 v1.123456789012345678901234567890.0
 
 check "an empty text is not a version" 1 ""
 check "v alone is not a version" 1 v
-check "v0 is not a version" 1 v0
-check "a leading zero is not a version" 1 v01
-check "a number without v is not a version" 1 1
-check "a capital V is not a version" 1 V1
-check "a dot is not a version" 1 v1.0
-check "a sign is not a version" 1 v-1
-check "a letter after the number is not a version" 1 v1a
-check "a space inside is not a version" 1 "v 1"
-check "a trailing space is not a version" 1 "v1 "
-check "a leading space is not a version" 1 " v1"
-check "a line break after the version is not a version" 1 "v1
+check "the old form v1 is not a version" 1 v1
+check "major and minor alone are not a version" 1 v1.2
+check "a fourth number is not a version" 1 v1.2.3.4
+check "a leading zero in the major is not a version" 1 v01.2.3
+check "a leading zero in the minor is not a version" 1 v1.02.3
+check "a leading zero in the patch is not a version" 1 v1.2.03
+check "an empty major is not a version" 1 v.2.3
+check "an empty minor is not a version" 1 v1..3
+check "an empty patch is not a version" 1 v1.2.
+check "a number without v is not a version" 1 1.2.3
+check "a capital V is not a version" 1 V1.2.3
+check "a sign is not a version" 1 v1.-2.3
+check "a pre-release suffix is not a version" 1 v1.2.3-rc1
+check "a build suffix is not a version" 1 v1.2.3+5
+check "a letter after the patch is not a version" 1 v1.2.3a
+check "a letter inside is not a version" 1 v1.x.3
+check "a space inside is not a version" 1 "v1.2. 3"
+check "a trailing space is not a version" 1 "v1.2.3 "
+check "a leading space is not a version" 1 " v1.2.3"
+check "a line break after the version is not a version" 1 "v1.2.3
 "
-check "a second line is not a version" 1 "v1
-v2"
+check "a second line is not a version" 1 "v1.2.3
+v1.2.4"
 check "latest is not a version" 1 latest
 check "a dated tag is not a version" 1 2026-11-14-1a2b3c4
 
 check "no argument is a usage error" 2
-check "two arguments are a usage error" 2 v1 v2
+check "two arguments are a usage error" 2 v1.0.0 v2.0.0
 
 echo "${passed} checks passed"

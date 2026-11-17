@@ -85,26 +85,30 @@ check() {
 }
 
 mkdir -p "${work}/images/alpha"
-printf 'v3\n' >"${work}/images/alpha/version"
+printf 'v3.1.4\n' >"${work}/images/alpha/version"
 
 published
 check "a version that is not in the registry passes" 0 "" alpha
 asked="$(cat "${work}/registry/asked")"
-if [ "${asked}" != "ghcr.io/splicefs/alpha:v3" ]; then
-    fail "the registry was asked about \"${asked}\", wanted ghcr.io/splicefs/alpha:v3"
+if [ "${asked}" != "ghcr.io/splicefs/alpha:v3.1.4" ]; then
+    fail "the registry was asked about \"${asked}\", wanted ghcr.io/splicefs/alpha:v3.1.4"
 fi
 passed=$((passed + 1))
 echo "ok - the registry is asked about the image under its version"
 
-published "ghcr.io/splicefs/alpha:v1" "ghcr.io/splicefs/alpha:v2" "ghcr.io/splicefs/beta:v3" "ghcr.io/splicefs/alpha:latest"
+published "ghcr.io/splicefs/alpha:v1.0.0" "ghcr.io/splicefs/alpha:v3.1.3" "ghcr.io/splicefs/alpha:v3.2.4" "ghcr.io/splicefs/beta:v3.1.4" "ghcr.io/splicefs/alpha:latest"
 check "other versions and other images in the registry do not matter" 0 "" alpha
 
-published "ghcr.io/splicefs/alpha:v3"
-check "a version that is in the registry fails and says why" 1 "alpha:v3 is already published; a change needs a new version" alpha
+# The tags that move are not the version: they exist from the first publish of a line on.
+published "ghcr.io/splicefs/alpha:v3.1" "ghcr.io/splicefs/alpha:v3"
+check "the moving tags of the version do not count as published" 0 "" alpha
+
+published "ghcr.io/splicefs/alpha:v3.1.4"
+check "a version that is in the registry fails and says why" 1 "alpha:v3.1.4 is already published; a change needs a new version" alpha
 
 published
 : >"${work}/registry/broken"
-check "a registry that cannot be asked stops the publish" 3 "could not ask the registry about ghcr.io/splicefs/alpha:v3" alpha
+check "a registry that cannot be asked stops the publish" 3 "could not ask the registry about ghcr.io/splicefs/alpha:v3.1.4" alpha
 
 published
 check "an image without a version file stops the publish" 3 "images/beta/version" beta
