@@ -5,21 +5,24 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/SpliceFS/images/badge)](https://scorecard.dev/viewer/?uri=github.com/SpliceFS/images)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Ready-made container images for the tests of [SpliceFS](https://splicefs.org).
+Ready-made container images for the builds, checks and tests of [SpliceFS](https://splicefs.org).
 
-The tests of the SpliceFS repositories run inside containers. Until now each run started a
-stock image and installed the tools the tests need into it: QEMU, a service manager,
-package build tools. That took minutes on every run. This repository defines images that
-already have those tools in them. A workflow builds them and publishes them to the GitHub
-container registry as `ghcr.io/splicefs/<image>:<version>`.
+The builds, checks and tests of the SpliceFS repositories run inside containers. Until now
+each run started a stock image and installed the tools it needs into it: QEMU, a service
+manager, package build tools. That took minutes on every run. This repository defines
+images that already have those tools in them. A workflow builds them and publishes them to
+the GitHub container registry as `ghcr.io/splicefs/<image>:<version>`.
 
-The images are test tools for the SpliceFS repositories. They are not meant for running
+The images are tools for the SpliceFS repositories. They are not meant for running
 SpliceFS itself.
 
 ## Images
 
 | Image | Contents | Used by |
 | --- | --- | --- |
+| [`go`](images/go) | Ubuntu 26.04 plus Go 1.27, gcc, golangci-lint, ShellCheck, git, make, FUSE, curl, xz, zstd, GnuPG, OpenSSL and apt-utils; runs as a user that is not root | Go builds, checks and lint runs of the SpliceFS repositories |
+| [`rpm-build`](images/rpm-build) | Rocky Linux 9 plus rpmbuild, rpmsign, createrepo_c and GnuPG | Building and signing rpm packages and rpm repositories |
+| [`apk-build`](images/apk-build) | Alpine Linux 3.22 plus abuild | Building and signing apk packages and apk repositories |
 | [`go-qemu`](images/go-qemu) | The Go toolchain image plus QEMU for amd64 and arm64 guests, FUSE, curl, xz and zstd | FreeBSD machine tests of server, client and packages; `make check-linux` |
 | [`freebsd-15.1`](images/freebsd-15.1) | A FreeBSD 15.1 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
 | [`freebsd-14.5`](images/freebsd-14.5) | A FreeBSD 14.5 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
