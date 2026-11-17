@@ -20,7 +20,7 @@ SpliceFS itself.
 
 | Image | Contents | Used by |
 | --- | --- | --- |
-| [`go`](images/go) | The Go toolchain image plus golangci-lint, ShellCheck, git, make, FUSE, curl, xz, zstd, GnuPG, OpenSSL and apt-utils | Go builds, checks and lint runs of the SpliceFS repositories |
+| [`go`](images/go) | Ubuntu 26.04 plus Go 1.27, gcc, golangci-lint, ShellCheck, git, make, FUSE, curl, xz, zstd, GnuPG, OpenSSL and apt-utils; runs as a user that is not root | Go builds, checks and lint runs of the SpliceFS repositories |
 | [`rpm-build`](images/rpm-build) | Rocky Linux 9 plus rpmbuild, rpmsign, createrepo_c and GnuPG | Building and signing rpm packages and rpm repositories |
 | [`apk-build`](images/apk-build) | Alpine Linux 3.22 plus abuild | Building and signing apk packages and apk repositories |
 | [`go-qemu`](images/go-qemu) | The Go toolchain image plus QEMU for amd64 and arm64 guests, FUSE, curl, xz and zstd | FreeBSD machine tests of server, client and packages; `make check-linux` |
