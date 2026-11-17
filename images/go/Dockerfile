@@ -31,8 +31,8 @@ RUN set -eu; \
     name="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${TARGETARCH}"; \
     work="$(mktemp -d)"; \
     cd "${work}"; \
-    curl -fsSLO "${release}/${name}.tar.gz"; \
-    curl -fsSLO "${release}/golangci-lint-${GOLANGCI_LINT_VERSION}-checksums.txt"; \
+    curl -fsSLO --proto "=https" --proto-redir "=https" "${release}/${name}.tar.gz"; \
+    curl -fsSLO --proto "=https" --proto-redir "=https" "${release}/golangci-lint-${GOLANGCI_LINT_VERSION}-checksums.txt"; \
     awk -v file="${name}.tar.gz" '$2 == file' "golangci-lint-${GOLANGCI_LINT_VERSION}-checksums.txt" | sha256sum -c -; \
     tar -xzf "${name}.tar.gz" -C /usr/local/bin --strip-components=1 "${name}/golangci-lint"; \
     cd /; \
