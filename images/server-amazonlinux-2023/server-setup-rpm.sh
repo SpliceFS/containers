@@ -8,7 +8,7 @@
 #   openSUSE:     the pattern base, with the pattern minimal_base that it requires. The
 #                 pattern minimal_base alone is already satisfied by the container image,
 #                 and has no service manager in it.
-# ca-certificates is added, because every server has them. Weak dependencies are installed
+# ca-certificates is added, because every server has them. Firmware is left out on Rocky Linux. Weak dependencies are installed
 # as the installers of Rocky Linux and openSUSE install them, and are left out on Amazon
 # Linux, see there. The same file is in the folder of every rpm server image, and
 # scripts/same-files.sh checks that.
@@ -20,8 +20,10 @@ set -eu
 case "${ID}" in
 rocky)
     # --allowerasing lets the full coreutils and curl replace coreutils-single and
-    # curl-minimal, which the container image has and the group does not.
-    dnf install -y --allowerasing @core ca-certificates
+    # curl-minimal, which the container image has and the group does not. Firmware is
+    # left out: it is for hardware and a kernel, a container has neither, and it would
+    # make the image up to 2 GB larger.
+    dnf install -y --allowerasing --exclude='*firmware*' @core ca-certificates
     # The package caches stay out of the layer.
     dnf clean all
     ;;

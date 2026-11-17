@@ -69,6 +69,8 @@ case "${ID}" in
 rocky)
     check "package openssh-server" rpm -q openssh-server
     check "package firewalld" rpm -q firewalld
+    # Firmware is for hardware and a kernel, and a container has neither.
+    refuse "no firmware package is installed" sh -c 'rpm -qa | grep -q firmware'
     ;;
 amzn)
     check "package openssh-server" rpm -q openssh-server
