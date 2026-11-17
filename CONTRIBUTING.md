@@ -209,11 +209,7 @@ the Build workflow by hand from the Actions tab. There is no scheduled rebuild.
 
 | Workflow | What it does |
 | --- | --- |
-<<<<<<< HEAD
-| Build | tests the scripts, checks that the FreeBSD image folders hold the same files, runs ShellCheck, checks the versions of the changed images in a pull request, prepares and builds the changed images for each of their CPU types, and on `main` publishes them under their version and moves their minor and major tags |
-=======
-| Build | tests the scripts, checks that the folders of an image family (FreeBSD, deb, rpm, apk) hold the same files, runs ShellCheck, checks the versions of the changed images in a pull request, prepares and builds the changed images for each of their CPU types, and on `main` publishes them under their version |
->>>>>>> origin/main
+| Build | tests the scripts, checks that the folders of an image family (FreeBSD, deb, rpm, apk) hold the same files, runs ShellCheck, checks the versions of the changed images in a pull request, prepares and builds the changed images for each of their CPU types, and on `main` publishes them under their version and moves their minor and major tags |
 | Security | CodeQL on the workflows, the tracked-files check, and dependency review on pull requests |
 | Scorecard | OpenSSF Scorecard, published weekly and on every push |
 
