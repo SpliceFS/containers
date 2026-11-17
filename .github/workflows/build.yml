@@ -40,7 +40,7 @@ jobs:
               sh "${test}"
           done
           sh scripts/same-files.sh
-          shellcheck --shell=sh -o all scripts/*.sh
+          shellcheck --shell=sh -o all scripts/*.sh images/*/*.sh
       # Compared from the point where the branch left the base branch, so that changes
       # made on the base branch since then do not count as this pull request's own.
       - name: Find the fork point
