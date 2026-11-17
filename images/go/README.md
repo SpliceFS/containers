@@ -19,8 +19,8 @@ line of the file `version` in this folder. `test.sh` checks the tools inside the
 
 ## Who it runs as
 
-The image does not run as root. It starts as the user `build` (uid 1000, home
-`/home/build`). Three ways to run it:
+The image does not run as root. It starts as the user `build` (uid 1000, home `/tmp`).
+Three ways to run it:
 
 ```sh
 # 1. As the default user.
@@ -28,9 +28,14 @@ docker run --rm ghcr.io/splicefs/go:v1 go version
 
 # 2. As your own user, so that the files that the container writes into a mounted
 #    folder belong to you. Any uid and gid work, for example 501:20 on macOS or
-#    1001:127 on a GitHub runner. Use "$(id -u):$(id -g)" for yours.
+#    1001:127 on a GitHub runner. Use "$(id -u):$(id -g)" for yours. The module cache
+#    and the build cache then start empty in every container. To keep them, mount host
+#    folders that you own over /tmp/go/pkg/mod and /tmp/go-cache.
+mkdir -p "$HOME/.cache/splicefs-go/mod" "$HOME/.cache/splicefs-go/build"
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/src -w /src \
-    -v gomod:/go/pkg/mod ghcr.io/splicefs/go:v1 go test -race ./...
+    -v "$HOME/.cache/splicefs-go/mod":/tmp/go/pkg/mod \
+    -v "$HOME/.cache/splicefs-go/build":/tmp/go-cache \
+    ghcr.io/splicefs/go:v1 go test -race ./...
 
 # 3. As root, for a job that has to mount FUSE or NFS inside the container.
 docker run --rm --user 0 --privileged ghcr.io/splicefs/go:v1 id
@@ -38,16 +43,18 @@ docker run --rm --user 0 --privileged ghcr.io/splicefs/go:v1 id
 
 A user that is not in `/etc/passwd` works because no setting depends on the user entry:
 
-- `HOME` is set to `/home/build` in the image. Without it Docker would give such a user `/` as its home.
-- `/home/build`, `/go/bin`, `/go/pkg/mod` (`GOMODCACHE`) and `/go/cache` (`GOCACHE`) have mode 1777: every user may create files there, and only the owner may remove them, like `/tmp`.
-- A named volume that is empty gets the mode of the folder it is mounted on, so a volume mounted at `/go/pkg/mod` or `/go/cache` is writable by any user too.
+- `HOME` is `/tmp` in the image. Without it Docker would give such a user `/` as its home, where it cannot write.
+- `GOPATH` is `/tmp/go`, so the module cache (`GOMODCACHE`) is `/tmp/go/pkg/mod`, and `GOCACHE` is `/tmp/go-cache`.
+- `/tmp` is the folder that every Linux system lets all users write to, and only the owner of a file may remove it. The image changes the mode of no folder, so no folder of it is writable by everyone but `/tmp`; `test.sh` checks that.
 
-This is done with environment settings and folder modes, not with an entrypoint script,
-so `docker run --user ... <image> <command>` runs the command itself.
+This is done with environment settings, not with an entrypoint script, so
+`docker run --user ... <image> <command>` runs the command itself.
 
 Things to know:
 
-- A cache volume belongs to the user that first filled it. Use one volume per user. A volume that a root run filled, with this image or another, gives "permission denied" on cache writes to any other user, so start a new volume for a new user.
+- The tools of the image are in `/usr/local/bin` and `/usr/local/go/bin`, and `PATH` does not include `GOPATH/bin`. A tool that you `go install` is in `/tmp/go/bin`, and only for that container.
+- To keep a cache between runs, mount a host folder that the user of the run owns, as in the example above. A named Docker volume is created owned by root, so a user that is not root cannot write to it: `go` stops with "permission denied". Docker also creates `/tmp/go` and `/tmp/go/pkg` owned by root when a folder is mounted at `/tmp/go/pkg/mod`, so `go install` then needs `-e GOBIN=/tmp/bin` or another folder in `/tmp`.
+- A cache folder belongs to the user that first filled it. Use one folder per user. A folder that a root run filled, with this image or another, gives "permission denied" on cache writes to any other user, so start a new folder for a new user.
 - As root in a folder of a git checkout that another user owns, git refuses to work ("dubious ownership"), and `go build` of a main package then stops with "error obtaining VCS status". Copy the source first, or build with `-buildvcs=false`.
 
 Raise the version of the image when you change the Go release, the checksums, or
