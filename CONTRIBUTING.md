@@ -35,9 +35,40 @@ before work is spent on it.
    are ignored by git (`images/*/disk.qcow2`, `images/*/work/`). The folders
    `images/freebsd-*` are copies of each other on purpose, because the build of an image sees
    only its own folder: every file except `official`, `README.md` and `version` must be
-   identical in all of them, and `scripts/same-files.sh` fails when one differs.
+   identical in all of them, and `scripts/same-files.sh` fails when one differs. The server
+   images are copies in the same way, see "Add a server image" below.
 8. Add the image to the table in the top-level `README.md`.
 9. Open a pull request.
+
+## Add a server image
+
+A server image is a vendor system as a server that is up and running, see "What a server
+image is" in the top-level `README.md`. The folders of one package family are copies of each
+other on purpose, for the same reason as the FreeBSD ones: the build of an image sees only its
+own folder.
+
+| Family | Folders | Files that are identical in all of them |
+| --- | --- | --- |
+| deb | `server-debian-*`, `server-ubuntu-*` | `server-setup-deb.sh`, `test.sh` |
+| rpm | `server-rocky-*`, `server-amazonlinux-*`, `server-opensuse-*` | `server-setup-rpm.sh`, `test.sh` |
+| apk | `server-alpine-*` | `server-setup-apk.sh`, `test.sh` |
+
+To add a system of an existing family, copy the folder of another system of the family, name
+the new base image in the `FROM` line and the new system in the `description` label of the
+`Dockerfile`, write its `README.md`, and leave the other files alone. `scripts/same-files.sh`
+fails when a copy of a setup script or of `test.sh` differs. The `Dockerfile`, `README.md` and
+`version` are the files that may differ. To change what a family installs, change the setup
+script in every folder of the family and raise every `version`.
+
+A new family needs a new group in `group_of` of `scripts/same-files.sh`, with a check in
+`scripts/same-files-test.sh`.
+
+An image holds the vendor's own minimal server install (see the table in "What a server image
+is" in the top-level `README.md`), `ca-certificates` and nothing else. The set is named by the
+vendor's metapackage, group, pattern or priority, and is never a list kept here. A server image
+must look like a server that was just deployed, and the SpliceFS packages bring their own
+dependencies when they are installed, so adding a package to the image is a decision for an
+issue first.
 
 ## Versions
 
@@ -88,12 +119,13 @@ An image with a `prepare.sh` needs it run first, the way the workflow does it:
 sh images/<name>/prepare.sh amd64
 ```
 
-The scripts are POSIX sh. Check them with what the Build workflow runs:
+The scripts, and the scripts inside the image folders, are POSIX sh. Check them with what the
+Build workflow runs:
 
 ```sh
 for test in scripts/*-test.sh; do sh "${test}"; done
 sh scripts/same-files.sh
-shellcheck --shell=sh -o all scripts/*.sh
+shellcheck --shell=sh -o all scripts/*.sh images/*/*.sh
 ```
 
 The checks that a pull request gets for the versions run on your branch the same way. They
@@ -150,7 +182,7 @@ the Build workflow by hand from the Actions tab. There is no scheduled rebuild.
 
 | Workflow | What it does |
 | --- | --- |
-| Build | tests the scripts, checks that the FreeBSD image folders hold the same files, runs ShellCheck, checks the versions of the changed images in a pull request, prepares and builds the changed images for each of their CPU types, and on `main` publishes them under their version |
+| Build | tests the scripts, checks that the folders of an image family (FreeBSD, deb, rpm, apk) hold the same files, runs ShellCheck, checks the versions of the changed images in a pull request, prepares and builds the changed images for each of their CPU types, and on `main` publishes them under their version |
 | Security | CodeQL on the workflows, the tracked-files check, and dependency review on pull requests |
 | Scorecard | OpenSSF Scorecard, published weekly and on every push |
 
