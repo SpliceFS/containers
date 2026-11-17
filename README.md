@@ -27,7 +27,7 @@ and running. None of the images is meant for running SpliceFS in production.
 | [`go`](images/go) | Ubuntu 26.04 plus Go 1.27, gcc, golangci-lint, ShellCheck, git, make, FUSE, curl, xz, zstd, GnuPG, OpenSSL and apt-utils; runs as a user that is not root | Go builds, checks and lint runs of the SpliceFS repositories |
 | [`rpm-build`](images/rpm-build) | Rocky Linux 9 plus rpmbuild, rpmsign, createrepo_c and GnuPG | Building and signing rpm packages and rpm repositories |
 | [`apk-build`](images/apk-build) | Alpine Linux 3.22 plus abuild | Building and signing apk packages and apk repositories |
-| [`go-qemu`](images/go-qemu) | The Go toolchain image plus QEMU for amd64 and arm64 guests, FUSE, curl, xz and zstd | FreeBSD machine tests of server, client and packages; `make check-linux` |
+| [`go-qemu`](images/go-qemu) | The `go` image plus QEMU for amd64 and arm64 guests; runs as a user that is not root, and QEMU needs `--user 0` or the group of `/dev/kvm` for hardware virtualization | FreeBSD machine tests of server, client and packages; `make check-linux` |
 | [`freebsd-15.1`](images/freebsd-15.1) | A FreeBSD 15.1 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
 | [`freebsd-14.5`](images/freebsd-14.5) | A FreeBSD 14.5 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
 
@@ -125,7 +125,7 @@ Booting is what the commands above do.
 ## Pull an image
 
 ```sh
-docker pull ghcr.io/splicefs/go-qemu:v1
+docker pull ghcr.io/splicefs/go-qemu:v2
 ```
 
 An image is published for amd64 and arm64, unless its folder holds a file `arch` that
@@ -157,12 +157,12 @@ Publishing `vX.Y.Z` makes three tags, all pointing at the same image:
 ### Which tag to use
 
 - Testing images (`go-qemu`, `freebsd-15.1`, `freebsd-14.5`): name the major version, as in
-  `go-qemu:v1`. Fixes and new tools reach the repository without a change of its own.
+  `go-qemu:v2`. Fixes and new tools reach the repository without a change of its own.
 - Server images (folders named `server-*`): name the major and minor version, as in
   `server-debian-12:v1.0`. Fixes reach the repository, and a new tool, which is a minor
   release, is taken only when the repository moves to the next minor version.
 - An image that is built on another image of this repository names its base the same way in
-  its `FROM` line, as in `FROM ghcr.io/splicefs/go-qemu:v1`.
+  its `FROM` line, as in `FROM ghcr.io/splicefs/go-qemu:v2`.
 - A repository that needs a build that cannot change names the full version.
 
 ### Change an image
