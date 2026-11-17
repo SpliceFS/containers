@@ -1,8 +1,9 @@
 name: Build
 
 # Images are built only when their own folder changed, or when somebody starts this
-# workflow by hand. An image is published only under its version, the one line of
-# images/<name>/version, and a published version never changes.
+# workflow by hand. An image is published under its version, the one line of
+# images/<name>/version (vMAJOR.MINOR.PATCH), and a published version never changes. The
+# same publish also moves the tags of its minor and major version, see the publish job.
 on:
   push:
     branches: [main]
@@ -219,9 +220,8 @@ jobs:
           set -eu
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           repository="ghcr.io/splicefs/${IMAGE}"
-          # The image is published under its version and no other name. A published
-          # version never changes, so a version that is already there stops this image
-          # before anything is published.
+          # The full version is published once and never changes, so a version that is
+          # already there stops this image before anything is published.
           sh scripts/check-unpublished.sh "${IMAGE}"
           version="$(sh scripts/image-version.sh "${IMAGE}")"
           # Only the CPU types that were built for this image are joined. The same file
@@ -235,6 +235,20 @@ jobs:
           # One name that gives each machine its own CPU type. It is made from the
           # builds already in the registry, so nothing is built or emulated here.
           docker buildx imagetools create -t "${repository}:${version}" "$@"
+          # Publishing vX.Y.Z also moves the tags vX.Y and vX to it, so that a repository
+          # that names vX.Y or vX gets the new image. Moving both is always right: the pull
+          # request check lets the version of an image only grow, so the version published
+          # from main is greater than every version published before it. That makes it the
+          # newest of its minor line and of its major line, and the tags never move to an
+          # older image. They are made from the full tag that was just created, so all
+          # three names hold the same manifest.
+          moving="${RUNNER_TEMP}/moving-tags.txt"
+          sh scripts/moving-tags.sh "${version}" >"${moving}"
+          set --
+          while IFS= read -r tag; do
+              set -- "$@" -t "${repository}:${tag}"
+          done <"${moving}"
+          docker buildx imagetools create "$@" "${repository}:${version}"
           docker buildx imagetools inspect "${repository}:${version}"
 
   # The branch rule needs one check with a fixed name: the build jobs are named after the
