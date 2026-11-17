@@ -10,6 +10,10 @@
 # with --user 0 -e EXPECT_ROOT=1 to prove the root mode: the run must then really be root.
 set -eu
 
+# Descriptor 3 is the real error output. check hides descriptors 1 and 2 of what it runs,
+# and a failed step must still show why it failed.
+exec 3>&2
+
 # Runs a tool with output hidden, and stops the whole test at the first one that is
 # missing or does not start.
 check() {
@@ -29,13 +33,15 @@ writable() {
     rm -f "${probe}"
 }
 
-# Runs a step of the end-to-end check with its output kept in a file, because check hides
-# it, and shows that output when the step fails.
+# Runs a step of the end-to-end check with its output kept in a file, and shows that output
+# on descriptor 3 when the step fails. A function that runs as the condition of an if has
+# set -e switched off inside it, so each function below stops itself with "|| return 1"
+# after every command but the last, which gives its status.
 step() {
     if "$@" >"${work}/step.out" 2>&1; then
         return 0
     fi
-    cat "${work}/step.out" >&2
+    cat "${work}/step.out" >&3
     return 1
 }
 
@@ -68,8 +74,8 @@ build_package() {
 # A key without a passphrase, in a folder of its own, so that nothing of the test reaches
 # the key ring of the user.
 make_key() {
-    mkdir "${work}/gnupg"
-    chmod 700 "${work}/gnupg"
+    mkdir "${work}/gnupg" || return 1
+    chmod 700 "${work}/gnupg" || return 1
     gpg --batch --pinentry-mode loopback --passphrase "" \
         --quick-generate-key "Image test <test@example.invalid>" rsa2048 sign never
 }
@@ -90,21 +96,21 @@ sign_package() {
 # database of the test, not into the one of the image. A package without a signature passes
 # the digest check, so the answer must say that the signature was checked too.
 signature_is_good() {
-    gpg --armor --export "$1" >"${work}/key.asc"
-    rpmkeys --dbpath "${work}/rpmdb" --import "${work}/key.asc"
+    gpg --armor --export "$1" >"${work}/key.asc" || return 1
+    rpmkeys --dbpath "${work}/rpmdb" --import "${work}/key.asc" || return 1
     rpmkeys --dbpath "${work}/rpmdb" --checksig \
-        "${work}/top/RPMS/noarch/hello-1-1.noarch.rpm" >"${work}/checksig.out"
+        "${work}/top/RPMS/noarch/hello-1-1.noarch.rpm" >"${work}/checksig.out" || return 1
     grep -q 'signatures OK' "${work}/checksig.out"
 }
 
 # The index of a repository, signed in a file next to it, as the repository script does.
 repository_is_signed() {
-    mkdir -p "${work}/repo"
-    cp "${work}/top/RPMS/noarch/hello-1-1.noarch.rpm" "${work}/repo/"
-    createrepo_c --quiet --update "${work}/repo"
+    mkdir -p "${work}/repo" || return 1
+    cp "${work}/top/RPMS/noarch/hello-1-1.noarch.rpm" "${work}/repo/" || return 1
+    createrepo_c --quiet --update "${work}/repo" || return 1
     gpg --batch --yes --pinentry-mode loopback --passphrase "" --default-key "$1" \
         --armor --detach-sign -o "${work}/repo/repodata/repomd.xml.asc" \
-        "${work}/repo/repodata/repomd.xml"
+        "${work}/repo/repodata/repomd.xml" || return 1
     gpg --verify "${work}/repo/repodata/repomd.xml.asc" "${work}/repo/repodata/repomd.xml"
 }
 
