@@ -7,7 +7,8 @@
 #   check-version-bump.sh BASE HEAD
 #
 # The images are those that changed-images.sh lists. Only the version at BASE and the
-# version at HEAD are compared, whatever happened between them. An image with no version
+# version at HEAD are compared, as numbers by major, minor and patch (version-compare.sh),
+# whatever happened between them. An image with no version
 # at BASE is new, or is getting its first version, and needs only a valid one.
 set -eu
 
@@ -69,7 +70,11 @@ while IFS= read -r name; do
 
     if [ "${old_status}" -eq 3 ]; then
         echo "images/${name}: ${new} (new)"
-    elif [ "${new#v}" -gt "${old#v}" ]; then
+        continue
+    fi
+    # Run on its own line, so that its failure stops this script.
+    order="$(sh "${here}/version-compare.sh" "${new}" "${old}")"
+    if [ "${order}" = greater ]; then
         echo "images/${name}: ${old} -> ${new}"
     else
         echo "check-version-bump.sh: images/${name} changed, but its version ${new} is not greater than ${old} before the change: raise images/${name}/version" >&2

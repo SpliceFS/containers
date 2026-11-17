@@ -1,5 +1,5 @@
 #!/bin/sh
-# Prints the version of an image: the one line of images/NAME/version, for example v3. A
+# Prints the version of an image: the one line of images/NAME/version, for example v3.1.4. A
 # version that is malformed is an error, so nothing downstream sees one. The build
 # workflow publishes the image under this name, and the pull request checks compare it.
 #
@@ -81,7 +81,7 @@ fi
 # failure for a last line without a line break, though it has read the line.
 IFS= read -r version <"${content}" || [ -n "${version}" ]
 if ! sh "${here}/version-valid.sh" "${version}"; then
-    echo "image-version.sh: ${where} says \"${version}\", which is not a version: use v followed by a number, as in v1" >&2
+    echo "image-version.sh: ${where} says \"${version}\", which is not a version: use vMAJOR.MINOR.PATCH, as in v1.0.0" >&2
     exit 1
 fi
 echo "${version}"

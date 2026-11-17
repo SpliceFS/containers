@@ -2,7 +2,7 @@
 # Fails, naming the Dockerfile, when an image that a change touched is built on another
 # image of this repository without naming a version that exists. A tag that moves, such as
 # latest, would make the image different from one build to the next, so the base must be
-# pinned to a version, as in FROM ghcr.io/splicefs/go-qemu:v1. The version exists when the
+# pinned to a version, as in FROM ghcr.io/splicefs/go-qemu:v1.0.0. The version exists when the
 # registry holds it, or when this same change publishes it: the base image is in the change
 # and has that version at HEAD. A pull request runs this with the fork point as BASE and
 # its last commit as HEAD.
@@ -64,7 +64,7 @@ while IFS= read -r name; do
         esac
 
         if ! sh "${here}/version-valid.sh" "${tag}"; then
-            echo "check-base-versions.sh: images/${name}/Dockerfile: ${reference} does not name a version: pin it, as in ${prefix}${base_name}:v1" >&2
+            echo "check-base-versions.sh: images/${name}/Dockerfile: ${reference} does not name a version: pin it, as in ${prefix}${base_name}:v1.0.0" >&2
             failed=1
             continue
         fi

@@ -82,33 +82,33 @@ check() {
     echo "ok - ${description}"
 }
 
-version_file alpha "v1\n"
-check "a version file prints its version" 0 "v1" "" alpha
+version_file alpha "v1.0.0\n"
+check "a version file prints its version" 0 "v1.0.0" "" alpha
 
-version_file alpha "v7"
-check "a last line without a line break counts" 0 "v7" "" alpha
+version_file alpha "v7.1.2"
+check "a last line without a line break counts" 0 "v7.1.2" "" alpha
 
-version_file alpha "v12\n"
-check "a version of two digits is printed whole" 0 "v12" "" alpha
+version_file alpha "v12.30.45\n"
+check "a version of two digits in each place is printed whole" 0 "v12.30.45" "" alpha
 
 # The version of the working files is not the version of a commit.
-version_file alpha "v1\n"
-version_file beta "v3\n"
+version_file alpha "v1.0.0\n"
+version_file beta "v3.1.4\n"
 commit "first versions"
 c1="${rev}"
-version_file alpha "v2\n"
-check "without a commit the working file is read" 0 "v2" "" alpha
-check "with a commit the version of that commit is read" 0 "v1" "" alpha "${c1}"
-check "a branch name or HEAD works as a commit" 0 "v3" "" beta HEAD
+version_file alpha "v2.0.0\n"
+check "without a commit the working file is read" 0 "v2.0.0" "" alpha
+check "with a commit the version of that commit is read" 0 "v1.0.0" "" alpha "${c1}"
+check "a branch name or HEAD works as a commit" 0 "v3.1.4" "" beta HEAD
 
-version_file gamma "v1\n"
+version_file gamma "v1.0.0\n"
 check "an image with no version file at the commit exits 3" 3 "" "images/gamma/version" gamma "${c1}"
 check "an image without a version file exits 3" 3 "" "images/delta/version" delta
 check "a commit that does not exist exits 3" 3 "" "images/alpha/version" alpha "1111111111111111111111111111111111111111"
 
-for bad in "v0\n" "v01\n" "1\n" "latest\n" "V1\n" "v1.2\n" "v1 \n" " v1\n" "v1\r\n"; do
+for bad in "v1\n" "v1.2\n" "v1.2.3.4\n" "v01.2.3\n" "v1.02.3\n" "v1.2.03\n" "1.2.3\n" "latest\n" "V1.2.3\n" "v1.2.3-rc1\n" "v1.2.3 \n" " v1.2.3\n" "v1.2.3\r\n"; do
     version_file bad "${bad}"
-    check "a malformed version is an error: ${bad}" 1 "" "is not a version" bad
+    check "a malformed version is an error: ${bad}" 1 "" "use vMAJOR.MINOR.PATCH, as in v1.0.0" bad
 done
 commit "malformed versions"
 check "a malformed version of a commit is an error" 1 "" "is not a version" bad "${rev}"
@@ -119,10 +119,10 @@ check "an empty version file is an error" 1 "" "one line" empty
 version_file blank "\n"
 check "a version file of one blank line is an error" 1 "" "is not a version" blank
 
-version_file two-lines "v1\nv2\n"
+version_file two-lines "v1.0.0\nv2.0.0\n"
 check "two lines are an error" 1 "" "one line" two-lines
 
-version_file trailing-blank "v1\n\n"
+version_file trailing-blank "v1.0.0\n\n"
 check "a blank line after the version is an error" 1 "" "one line" trailing-blank
 commit "more malformed versions"
 check "two lines of a commit are an error" 1 "" "one line" two-lines "${rev}"
