@@ -74,8 +74,10 @@ xz -d "${archive}"
 report "unpack" "${start}"
 
 # The machine may take up to 600 seconds. /dev/kvm is passed on when the runner has it,
-# because without it the machine is emulated and many times slower.
-set -- run --rm
+# because without it the machine is emulated and many times slower. The go-qemu image
+# runs as a user that is not root, and that user cannot open /dev/kvm, so the run is
+# root. The disk that the run writes into the mounted folder belongs to root, and the build only copies it.
+set -- run --rm --user 0
 if [ -e /dev/kvm ]; then set -- "$@" --device /dev/kvm; fi
 start="$(date +%s)"
 docker "$@" -e VM_TIMEOUT=600 -v "${here}:/image" "${base}" \

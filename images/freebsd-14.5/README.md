@@ -5,6 +5,12 @@ already set up (compressed). The package tool works on it, and a job runs on eve
 test that boots it does the job itself and skips the time the official disk spends on its
 first boot (growing its filesystem, first-boot scripts).
 
+The disk is the official FreeBSD 14.5 release image, booted once with the package tool
+(`pkg`) bootstrapped, and a boot hook (`/etc/rc.local`) that runs a test job from a disk
+labelled `cidata` on every boot. Nothing of SpliceFS is on it. It serves the FreeBSD tests of
+the server, the client and the packages, and it is the FreeBSD server that the package tests
+install the packages into.
+
 The base system of 14.5 is not managed by pkg, so the official disk holds only a stub that
 fetches the real package tool on first use. The preparation runs `pkg bootstrap` once, and
 the disk holds the real tool.
@@ -12,10 +18,22 @@ the disk holds the real tool.
 For amd64 only. FreeBSD is tested on amd64 only, and on an arm64 machine this image
 would be emulated. The folder has an `arch` file that says so.
 
-Used by the FreeBSD jobs of the server, the client and the packages.
-Pull it with `docker pull ghcr.io/splicefs/freebsd-14.5:v1`. The tag `v1` follows every
-release of major version 1; `v1.0` and `v1.0.0` name a minor version and one exact
+Used by the FreeBSD jobs of the server, the client and the packages, and by the package
+tests as their FreeBSD server.
+Pull it with `docker pull ghcr.io/splicefs/freebsd-14.5:v2`. The tag `v2` follows every
+release of major version 2; `v2.0` and `v2.0.0` name a minor version and one exact
 release. The file `version` in this folder holds the exact one.
+
+## Who it runs as
+
+The image runs as root, unlike the `go-qemu` image it is built on, which runs as a user that
+is not root. The machine needs `/dev/kvm` for hardware virtualization, and only root and
+the group of that device can open it. Because the image runs as root, a run only has to
+pass the device to the container:
+
+    docker run --rm --device /dev/kvm ghcr.io/splicefs/freebsd-14.5:v2 /freebsd/vm.sh ...
+
+`prepare.sh` runs the preparation in the `go-qemu` image with `--user 0` for the same reason.
 
 ## Files in the image
 

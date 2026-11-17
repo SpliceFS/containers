@@ -1,7 +1,10 @@
 #!/bin/sh
 # Runs one FreeBSD virtual machine to completion: it boots the disk, the machine runs the
 # first-boot script of the job folder, writes its results to a scratch disk and powers off.
-# It runs inside the go-qemu image, which already has QEMU.
+# It runs inside the go-qemu image, which already has QEMU, or an image built on it. Hardware
+# virtualization needs /dev/kvm, which only root and the group of the device can open. The
+# freebsd images run as root, so a run of theirs has it when the device is passed to docker.
+# A run as another user without that group falls back to emulation, which is much slower.
 #
 #   vm.sh <amd64|arm64> <disk image> <job folder> <result folder> [input archive]
 #
