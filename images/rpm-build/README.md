@@ -17,8 +17,8 @@ and builds, signs and indexes a small package with a key that it makes itself.
 
 ## Who it runs as
 
-The image does not run as root. It starts as the user `build` (uid 1000, home
-`/home/build`). Three ways to run it:
+The image does not run as root. It starts as the user `build` (uid 1000, home `/tmp`).
+Three ways to run it:
 
 ```sh
 # 1. As the default user.
@@ -36,8 +36,8 @@ docker run --rm --user 0 ghcr.io/splicefs/rpm-build:v1 id
 
 A user that is not in `/etc/passwd` works because no setting depends on the user entry:
 
-- `HOME` is set to `/home/build` in the image. Without it Docker would give such a user `/` as its home.
-- `/home/build` has mode 1777: every user may create files there, and only the owner may remove them, like `/tmp`. `rpmbuild` keeps its work in `~/rpmbuild` unless the caller names another folder with `--define "_topdir ..."`.
+- `HOME` is set to `/tmp` in the image. Without it Docker would give such a user `/` as its home, where it cannot write.
+- `/tmp` is the folder that every Linux system lets all users write to, and only the owner of a file may remove it. The image changes the mode of no folder, so no folder of it is writable by everyone but `/tmp`; `test.sh` checks that. `rpmbuild` keeps its work in `~/rpmbuild`, which is `/tmp/rpmbuild`, unless the caller names another folder with `--define "_topdir ..."`.
 - The packages that `rpmbuild` makes list their files as owned by root whichever user builds them.
 
 Things to know:
