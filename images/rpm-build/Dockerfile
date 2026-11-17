@@ -11,3 +11,18 @@ LABEL org.opencontainers.image.source="https://github.com/SpliceFS/images" \
 RUN dnf install -y --setopt=install_weak_deps=False \
         rpm-build createrepo_c rpm-sign gnupg2; \
     dnf clean all
+
+# The user that the image runs as. No user holds uid 1000 in the base image. HOME is
+# world-writable with the sticky bit, like /tmp, so that a container started with any
+# other user (docker run --user 501:20, which has no entry in /etc/passwd) can write to
+# it too. rpmbuild keeps its work in ~/rpmbuild unless the caller names another folder.
+RUN set -eu; \
+    groupadd --gid 1000 build; \
+    useradd --uid 1000 --gid 1000 --create-home --home-dir /home/build --shell /bin/sh build; \
+    chmod 1777 /home/build
+
+# HOME is set here and not left to the user entry, because a user that is not in
+# /etc/passwd would get "/" as its home, where it cannot write.
+ENV HOME=/home/build
+
+USER build
