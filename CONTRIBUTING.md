@@ -17,8 +17,8 @@ before work is spent on it.
    Set the labels `org.opencontainers.image.source` (this links the published image to this
    repository, `https://github.com/SpliceFS/images`), `org.opencontainers.image.description`
    and `org.opencontainers.image.licenses`. An image built on another image of this
-   repository names a version of it, as in `FROM ghcr.io/splicefs/go-qemu:v1` (`v1`,
-   `v1.0` and `v1.0.0` are all allowed, see "Versions"), and never `latest` or a name
+   repository names a version of it, as in `FROM ghcr.io/splicefs/go-qemu:v2` (`v2`,
+   `v2.0` and `v2.0.0` are all allowed, see "Versions"), and never `latest` or a name
    without a version.
 3. Put a file `version` in it that holds one line, `v1.0.0`. See "Versions" below.
 4. Put a short `README.md` in it: what the image contains and which tests use it.
@@ -95,7 +95,7 @@ are no dated tags.
 How code refers to an image:
 
 - A testing image (`go-qemu`, `freebsd-15.1`, `freebsd-14.5`) is referred to by its major
-  version, as in `go-qemu:v1`. Patch and minor releases reach every user of `v1`.
+  version, as in `go-qemu:v2`. Patch and minor releases reach every user of `v2`.
 - A server image (a folder named `server-*`) is referred to by its major and minor version,
   as in `server-debian-12:v1.0`. Patch releases reach every user of `v1.0`. A minor
   release reaches only the users of `v1`, so a repository takes it by moving to `v1.1`.
