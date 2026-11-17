@@ -33,6 +33,15 @@ writable() {
     rm -f "${probe}"
 }
 
+# The folders that the base image makes writable by every user, as every Linux system
+# does. The image must not open any other folder to every user. find fails on the folders
+# that this user may not read, such as /root, and no other user but root can reach those
+# either, so only what it prints counts.
+folders_open_to_all() {
+    find / -xdev \( -path /tmp -o -path /var/tmp -o -path /run/lock \) -prune \
+        -o -type d -perm -0002 -print 2>/dev/null || true
+}
+
 # Runs a step of the end-to-end check with its output kept in a file, and shows that output
 # on descriptor 3 when the step fails. A function that runs as the condition of an if has
 # set -e switched off inside it, so each function below stops itself with "|| return 1"
@@ -129,6 +138,11 @@ else
 fi
 
 check "HOME is writable" writable "${HOME}"
+open="$(folders_open_to_all)"
+if [ -n "${open}" ]; then
+    echo "writable by every user: ${open}" >&2
+fi
+check "no folder but the temporary ones is writable by every user" test -z "${open}"
 
 work="$(mktemp -d)"
 trap 'rm -rf "${work}"' EXIT
