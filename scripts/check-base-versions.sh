@@ -1,11 +1,13 @@
 #!/bin/sh
 # Fails, naming the Dockerfile, when an image that a change touched is built on another
-# image of this repository without naming a version that exists. A tag that moves, such as
-# latest, would make the image different from one build to the next, so the base must be
-# pinned to a version, as in FROM ghcr.io/splicefs/go-qemu:v1.0.0. The version exists when the
-# registry holds it, or when this same change publishes it: the base image is in the change
-# and has that version at HEAD. A pull request runs this with the fork point as BASE and
-# its last commit as HEAD.
+# image of this repository without naming a tag that exists. latest, no tag at all and a
+# digest are refused: the base must name a version, so that the build does not depend on
+# a tag that nobody controls. The tag is a major version (v1), a major and minor version
+# (v1.2) or a full version (v1.2.3), as in FROM ghcr.io/splicefs/go-qemu:v1. It exists
+# when the registry holds it, or when this same change publishes it: the base image is in
+# the change, and the tag is its version or one of the tags that version moves
+# (moving-tags.sh). A pull request runs this with the fork point as BASE and its last
+# commit as HEAD.
 #
 #   check-base-versions.sh BASE HEAD
 #
@@ -42,6 +44,20 @@ trap 'exit 1' HUP INT TERM
 # Run on its own line, so that its failure stops this script.
 sh "${here}/changed-images.sh" "${base}" "${head}" >"${work}/changed"
 
+# Lists in the file "offered" the tags that this change publishes for the image NAME: its
+# version and the tags that version moves. They are not in the registry yet. The list is
+# empty for an image that the change does not touch, and for one that does not have a
+# readable version: that is for check-version-bump.sh to report.
+offered_tags() {
+    : >"${work}/offered"
+    if ! grep -Fxq "$1" <"${work}/changed"; then
+        return 0
+    fi
+    version="$(sh "${here}/image-version.sh" "$1" "${head}" 2>/dev/null)" || return 0
+    echo "${version}" >"${work}/offered"
+    sh "${here}/moving-tags.sh" "${version}" >>"${work}/offered"
+}
+
 failed=0
 while IFS= read -r name; do
     # The image of each FROM line, after the flags such as --platform. An instruction is
@@ -63,20 +79,21 @@ while IFS= read -r name; do
         *) ;;
         esac
 
-        if ! sh "${here}/version-valid.sh" "${tag}"; then
-            echo "check-base-versions.sh: images/${name}/Dockerfile: ${reference} does not name a version: pin it, as in ${prefix}${base_name}:v1.0.0" >&2
+        # The tag is completed to three numbers, so that version-valid.sh judges all three
+        # forms and the rule for a number stays in one place.
+        case "${tag}" in
+        *.*.*) full="${tag}" ;;
+        *.*) full="${tag}.0" ;;
+        *) full="${tag}.0.0" ;;
+        esac
+        if ! sh "${here}/version-valid.sh" "${full}"; then
+            echo "check-base-versions.sh: images/${name}/Dockerfile: ${reference} does not name a version: use vX, vX.Y or vX.Y.Z, as in ${prefix}${base_name}:v1.0.0" >&2
             failed=1
             continue
         fi
 
-        # The version that this change publishes for the base is not in the registry yet.
-        # An image that does not have a readable version just has none to offer here, and
-        # check-version-bump.sh reports it.
-        this_change=""
-        if grep -Fxq "${base_name}" <"${work}/changed"; then
-            this_change="$(sh "${here}/image-version.sh" "${base_name}" "${head}" 2>/dev/null)" || this_change=""
-        fi
-        if [ "${tag}" = "${this_change}" ]; then
+        offered_tags "${base_name}"
+        if grep -Fxq "${tag}" <"${work}/offered"; then
             echo "images/${name}: ${reference}"
             continue
         fi
