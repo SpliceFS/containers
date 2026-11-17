@@ -33,6 +33,15 @@ writable() {
     rm -f "${probe}"
 }
 
+# The folders that the base image makes writable by every user, as every Linux system
+# does. The image must not open any other folder to every user. find fails on the folders
+# that this user may not read, such as /root, and no other user but root can reach those
+# either, so only what it prints counts.
+folders_open_to_all() {
+    find / -xdev \( -path /tmp -o -path /var/tmp -o -path /run/lock \) -prune \
+        -o -type d -perm -0002 -print 2>/dev/null || true
+}
+
 # Runs a step of the end-to-end check with its output kept in a file, and shows that output
 # on descriptor 3 when the step fails. A function that runs as the condition of an if has
 # set -e switched off inside it, so each function below stops itself with "|| return 1"
@@ -101,16 +110,17 @@ signature_is_checked() {
     ! apk --keys-dir "${work}/nokeys" verify "${package}"
 }
 
-# The index step of the repository script: the key goes into the folder that apk trusts
-# on this machine, and the index is signed with the key under the name of the public key.
-# apk looks for the index in a folder named after the CPU type of the machine that installs.
+# The index step of the repository script: apk index checks the packages against the keys
+# folder that it is given, not against the one of the system, which only root may change,
+# and the index is signed with the key under the name of the public key. apk looks for the
+# index in a folder named after the CPU type of the machine that installs.
 sign_index() {
-    cp "$1.pub" /etc/apk/keys/ || return 1
     mkdir -p "${work}/index/${arch}" || return 1
     cp "${package}" "${work}/index/${arch}/" || return 1
     (
         cd "${work}/index/${arch}" || exit 1
-        apk index -q --rewrite-arch "${arch}" -o APKINDEX.tar.gz ./*.apk || exit 1
+        apk --keys-dir "${work}/keys" index -q --rewrite-arch "${arch}" -o APKINDEX.tar.gz \
+            ./*.apk || exit 1
         abuild-sign -q -k "$1" -p "$1.pub" APKINDEX.tar.gz
     )
 }
@@ -121,12 +131,6 @@ index_is_installable() {
     apk --root "${work}/root" --keys-dir "${work}/keys" --no-cache \
         --repositories-file /dev/null -X "${work}/index" add --initdb hello || return 1
     test -f "${work}/root/usr/share/hello/hello.txt"
-}
-
-# The key in /etc/apk/keys is the only thing the test leaves outside its own folder.
-cleanup() {
-    rm -f "/etc/apk/keys/${key##*/}.pub" 2>/dev/null || true
-    rm -rf "${work}"
 }
 
 check "abuild" abuild -h
@@ -143,13 +147,16 @@ else
 fi
 
 check "HOME is writable" writable "${HOME}"
-check "the keys folder of apk is writable" writable /etc/apk/keys
+open="$(folders_open_to_all)"
+if [ -n "${open}" ]; then
+    echo "writable by every user: ${open}" >&2
+fi
+check "no folder but the temporary ones is writable by every user" test -z "${open}"
 
 arch="$(apk --print-arch)"
-key=""
 work="$(mktemp -d)"
 package="${work}/repo/pkgs/${arch}/hello-1-r0.apk"
-trap cleanup EXIT
+trap 'rm -rf "${work}"' EXIT
 write_recipe
 check "abuild-keygen makes a key" step make_key
 key="$(private_key)"
