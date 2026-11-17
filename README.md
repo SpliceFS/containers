@@ -28,8 +28,8 @@ and running. None of the images is meant for running SpliceFS in production.
 | [`rpm-build`](images/rpm-build) | Rocky Linux 9 plus rpmbuild, rpmsign, createrepo_c and GnuPG | Building and signing rpm packages and rpm repositories |
 | [`apk-build`](images/apk-build) | Alpine Linux 3.22 plus abuild | Building and signing apk packages and apk repositories |
 | [`go-qemu`](images/go-qemu) | The `go` image plus QEMU for amd64 and arm64 guests; runs as a user that is not root, and QEMU needs `--user 0` or the group of `/dev/kvm` for hardware virtualization | FreeBSD machine tests of server, client and packages; `make check-linux` |
-| [`freebsd-15.1`](images/freebsd-15.1) | A FreeBSD 15.1 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
-| [`freebsd-14.5`](images/freebsd-14.5) | A FreeBSD 14.5 disk that is already set up, with QEMU to boot it (amd64 only) | FreeBSD jobs of server, client and packages |
+| [`freebsd-15.1`](images/freebsd-15.1) | A FreeBSD 15.1 disk that is already set up, with QEMU to boot it; runs as root (amd64 only) | FreeBSD jobs of server, client and packages, and the FreeBSD server of the package tests |
+| [`freebsd-14.5`](images/freebsd-14.5) | A FreeBSD 14.5 disk that is already set up, with QEMU to boot it; runs as root (amd64 only) | FreeBSD jobs of server, client and packages, and the FreeBSD server of the package tests |
 
 ### Server images
 

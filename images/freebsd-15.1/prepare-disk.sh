@@ -1,7 +1,9 @@
 #!/bin/sh
 # Makes a FreeBSD disk that is already set up, so that a test run does not repeat the first
 # boot and the package tool setup every time. It runs inside the go-qemu image, which
-# already has QEMU, and installs nothing.
+# already has QEMU, and installs nothing. Run it as root (prepare.sh does): only root and
+# the group of /dev/kvm can use hardware virtualization, and the go-qemu image does not
+# run as root by default.
 #
 #   prepare-disk.sh <amd64|arm64> <official disk> <output disk>
 #
