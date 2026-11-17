@@ -2,7 +2,7 @@ FROM rockylinux/rockylinux:9
 
 # The source label links the published image to this repository on GitHub.
 LABEL org.opencontainers.image.source="https://github.com/SpliceFS/images" \
-      org.opencontainers.image.description="Rocky Linux 9 plus the tools that build and sign rpm packages and rpm repositories: rpmbuild, rpmsign, createrepo_c and GnuPG" \
+      org.opencontainers.image.description="Rocky Linux 9 plus the tools that build and sign rpm packages and rpm repositories: rpmbuild, rpmsign, createrepo_c and GnuPG. Runs as a user that is not root." \
       org.opencontainers.image.licenses="MIT"
 
 # One layer, so that the package metadata is gone from the image. The package versions are
