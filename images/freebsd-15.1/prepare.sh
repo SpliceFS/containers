@@ -44,6 +44,14 @@ read -r release _ checksum address <<LINE
 ${line}
 LINE
 
+# The go-qemu image of the FROM line of the Dockerfile, so that the disk is made by the
+# same QEMU that boots it in the image, and the version is named in one place.
+base="$(awk 'tolower($1) == "from" { print $2; exit }' "${here}/Dockerfile")"
+if [ -z "${base}" ]; then
+    echo "no FROM line in ${here}/Dockerfile" >&2
+    exit 1
+fi
+
 rm -rf "${work}"
 rm -f "${disk}"
 mkdir -p "${work}"
@@ -70,7 +78,7 @@ report "unpack" "${start}"
 set -- run --rm
 if [ -e /dev/kvm ]; then set -- "$@" --device /dev/kvm; fi
 start="$(date +%s)"
-docker "$@" -e VM_TIMEOUT=600 -v "${here}:/image" ghcr.io/splicefs/go-qemu:latest \
+docker "$@" -e VM_TIMEOUT=600 -v "${here}:/image" "${base}" \
     sh /image/prepare-disk.sh "${arch}" /image/work/official.qcow2 /image/disk.qcow2
 report "preparation" "${start}"
 
