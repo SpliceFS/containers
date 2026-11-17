@@ -36,22 +36,50 @@ one that matches your machine.
 
 ## Versions
 
-Every image has a version: `v1`, `v2`, `v3` and so on. It is the one line of the file
-`version` in the folder of the image, and the image is published as
-`ghcr.io/splicefs/<image>:<version>`. There is no `latest` tag and there are no dated tags.
+Every image has a version `vMAJOR.MINOR.PATCH`, as in `v1.0.0`: three whole numbers
+without a leading zero. It is the one line of the file `version` in the folder of the
+image. There is no `latest` tag and there are no dated tags.
 
-- A published version never changes. Any change to an image is published as the next
-  version, never over an old one.
+Publishing `vX.Y.Z` makes three tags, all pointing at the same image:
+
+| Tag | Holds | Moves when |
+| --- | --- | --- |
+| `vX.Y.Z` | one exact release | never |
+| `vX.Y` | the newest release of that minor version | a patch release of it is published |
+| `vX` | the newest release of that major version | a patch or minor release of it is published |
+
+- A full version is published once and never changes. Any change to an image is published
+  as a greater version, never over an old one.
 - Old versions stay available, so several versions of an image can be in use at the same
   time.
-- A repository that uses an image pins the exact version it needs, and moves to a newer
-  version when it chooses to. An image that is built on another image of this repository
-  does the same: its `FROM` line names the version of the base, as in
-  `FROM ghcr.io/splicefs/go-qemu:v1`.
+- The pull request check lets the version of an image only grow, so the version that is
+  published is always the newest of its minor and major version, and `vX.Y` and `vX` only
+  ever move forward.
 
-To change an image: edit its folder, raise the number in its `version` file, and merge the
-pull request. The merge publishes the new version. The old versions stay as they are, and
-the repositories that use the image keep the version they pin until they change it.
+### Which tag to use
+
+- Testing images (`go-qemu`, `freebsd-15.1`, `freebsd-14.5`): name the major version, as in
+  `go-qemu:v1`. Fixes and new tools reach the repository without a change of its own.
+- Server images (folders named `server-*`): name the major and minor version, as in
+  `server-debian-12:v1.0`. Fixes reach the repository, and a new tool, which is a minor
+  release, is taken only when the repository moves to the next minor version.
+- An image that is built on another image of this repository names its base the same way in
+  its `FROM` line, as in `FROM ghcr.io/splicefs/go-qemu:v1`.
+- A repository that needs a build that cannot change names the full version.
+
+### Change an image
+
+Edit its folder and raise the version in its `version` file by one step. Choose the step by
+what the change does to the people who use the image:
+
+- Patch (`v1.0.0` to `v1.0.1`): a fix, or newer base packages with no other change.
+- Minor (`v1.0.1` to `v1.1.0`): a new tool or another addition. Nothing that worked stops
+  working.
+- Major (`v1.1.0` to `v2.0.0`): a breaking change, such as a tool that is removed or
+  behaves differently.
+
+A new image starts at `v1.0.0`. The merge publishes the new version, moves `vX.Y` and `vX`
+to it, and leaves the old full versions as they are.
 
 ## When images are built
 
@@ -60,17 +88,17 @@ Build workflow by hand. Nothing is rebuilt on a timer.
 
 - A pull request builds the changed images for each of their CPU types and publishes
   nothing. It fails when a changed image does not have a greater version than it had where
-  the branch started.
+  the branch started. Versions are compared as numbers, by major, then minor, then patch.
 - A merge into `main` builds the changed images again and publishes each one under its
-  version.
+  full version, and moves its minor and major tags to it.
 - The Build workflow can be started by hand from the Actions tab, for one image or for all.
-  A manual run publishes too, but a version that is already published is never published
-  again: that image fails with an error, and a change needs a new version.
+  A manual run publishes too, but a full version that is already published is never
+  published again: that image fails with an error, and a change needs a new version.
 
 The gap this leaves: a published version holds the base image and the package versions of
 the day it was built, and never gets newer ones. An image only gets new base packages with
-a new version. Raise the number in its `version` file, with or without another change, and
-merge.
+a new version. Raise the patch number in its `version` file, with or without another
+change, and merge.
 
 To add an image, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

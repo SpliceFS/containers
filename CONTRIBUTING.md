@@ -17,9 +17,10 @@ before work is spent on it.
    Set the labels `org.opencontainers.image.source` (this links the published image to this
    repository, `https://github.com/SpliceFS/images`), `org.opencontainers.image.description`
    and `org.opencontainers.image.licenses`. An image built on another image of this
-   repository names an exact version of it, as in `FROM ghcr.io/splicefs/go-qemu:v1`, and
-   never `latest` or a name without a version.
-3. Put a file `version` in it that holds one line, `v1`. See "Versions" below.
+   repository names a version of it, as in `FROM ghcr.io/splicefs/go-qemu:v1` (`v1`,
+   `v1.0` and `v1.0.0` are all allowed, see "Versions"), and never `latest` or a name
+   without a version.
+3. Put a file `version` in it that holds one line, `v1.0.0`. See "Versions" below.
 4. Put a short `README.md` in it: what the image contains and which tests use it.
 5. Optionally put an executable `test.sh` in it. When it exists, the workflow runs it inside
    the built image and the build fails if it fails. The test gets `/dev/kvm` when the
@@ -41,35 +42,60 @@ before work is spent on it.
 
 ## Versions
 
-Every image has a version, the one line of `images/<name>/version`: `v` followed by a whole
-number above zero without a leading zero (`v1`, `v2`, `v10`). `scripts/image-version.sh
-<name>` prints it and refuses a malformed one. A new image starts at `v1`.
+Every image has a version, the one line of `images/<name>/version`: `v`, then the major,
+minor and patch numbers separated by dots, as in `v1.0.0`. Each number is a whole number
+without a leading zero, and zero itself is allowed. `scripts/image-version.sh <name>` prints
+the version and refuses a malformed one. A new image starts at `v1.0.0`; any valid version
+is accepted for a new image.
 
-The image is published as `ghcr.io/splicefs/<name>:<version>`. There is no `latest` tag and
-there are no dated tags.
+An image is published under its full version, `ghcr.io/splicefs/<name>:v1.2.3`, and the
+same publish moves two more tags to it: `v1.2` and `v1`. There is no `latest` tag and there
+are no dated tags.
 
-- A published version never changes. The Build workflow checks the registry before it
-  publishes, and stops with an error when the version is already there.
-- Old versions stay available. The repositories that use an image pin the exact version they
-  need, and an image built on another image pins the version of its base in its `FROM`
+- The full version is published once and never changes. The Build workflow checks the
+  registry before it publishes, and stops with an error when the full version is already
+  there.
+- The tags `vX.Y` and `vX` always point at the newest release of their line. That is right
+  because the pull request check lets the version of an image only grow, so the version
+  published from `main` is always the newest of its minor and major version.
+  `scripts/moving-tags.sh` names the tags a version moves.
+- Old versions stay available.
+
+How code refers to an image:
+
+- A testing image (`go-qemu`, `freebsd-15.1`, `freebsd-14.5`) is referred to by its major
+  version, as in `go-qemu:v1`. Patch and minor releases reach every user of `v1`.
+- A server image (a folder named `server-*`) is referred to by its major and minor version,
+  as in `server-debian-12:v1.0`. Patch releases reach every user of `v1.0`. A minor
+  release reaches only the users of `v1`, so a repository takes it by moving to `v1.1`.
+- An image built on another image of this repository follows the same rule in its `FROM`
   line.
+- The full version is for a repository that needs a build that cannot change.
 
 ## Change an image
 
 1. Edit the folder `images/<name>/`.
-2. Raise the number in `images/<name>/version`, for example from `v1` to `v2`. The pull
-   request fails when a changed image does not have a greater version than it had where
-   the branch started. A change of the version file alone is allowed: that is how an
-   image gets newer base packages.
-3. Open a pull request. When it merges, the new version is published. The old versions stay
-   as they are, and the repositories that use the image move to the new version when they
-   change the version they pin.
+2. Raise the version in `images/<name>/version`, by one step that fits the change:
+   - patch (`v1.0.0` to `v1.0.1`) for a fix, or for newer base packages with no other
+     change;
+   - minor (`v1.0.1` to `v1.1.0`) for a new tool or another addition, where nothing that
+     worked stops working;
+   - major (`v1.1.0` to `v2.0.0`) for a breaking change.
 
-When an image is built on another image of this repository, its `FROM` line must name a
-version of the base that is published, or one that the same pull request publishes. The
+   The pull request fails when a changed image does not have a greater full version than
+   it had where the branch started. Versions are compared as numbers, by major, then
+   minor, then patch, so `v1.10.0` is greater than `v1.9.0`. A change of the version file
+   alone is allowed: that is how an image gets newer base packages.
+3. Open a pull request. When it merges, the new version is published and `vX.Y` and `vX`
+   move to it. The old full versions stay as they are, and the repositories that use the
+   image get the release through the tag they name.
+
+When an image is built on another image of this repository, its `FROM` line must name a tag
+of the base that is published (`vX`, `vX.Y` or `vX.Y.Z`), or one that the same pull request
+publishes: the version of the base in the change, or the `vX.Y` or `vX` of that version. The
 check accepts both, but the build of a pull request can only pull a base that is already
 published. To change the base and an image built on it, change the base first and merge
-it. The image built on it pins the new version in a later pull request.
+it. The image built on it names the new version in a later pull request when it needs one.
 
 ## Build and check on your own machine
 
@@ -135,10 +161,11 @@ the Build workflow by hand from the Actions tab. There is no scheduled rebuild.
   image has an `arch` file), runs its smoke test, and publishes nothing. It also checks the
   versions, as described in "Change an image".
 - The merge into `main` builds the changed images again and publishes each one as
-  `ghcr.io/splicefs/<name>:<version>`, with the version of its `version` file.
+  `ghcr.io/splicefs/<name>:<version>`, with the version of its `version` file, and moves
+  `<name>:vX.Y` and `<name>:vX` to it.
 - A manual run of the Build workflow takes an optional image name. Empty means every image.
-  A manual run publishes, but never a version that is already published: that image stops
-  with an error and nothing of it is published.
+  A manual run publishes, but never a full version that is already published: that image
+  stops with an error and nothing of it is published.
 - Each CPU type is built on a runner of that type and the results are joined into one
   tag afterwards. Between those steps the registry holds a tag `<full commit>-<arch>` for
   each CPU type. Do not use those tags.
@@ -150,7 +177,7 @@ the Build workflow by hand from the Actions tab. There is no scheduled rebuild.
 
 | Workflow | What it does |
 | --- | --- |
-| Build | tests the scripts, checks that the FreeBSD image folders hold the same files, runs ShellCheck, checks the versions of the changed images in a pull request, prepares and builds the changed images for each of their CPU types, and on `main` publishes them under their version |
+| Build | tests the scripts, checks that the FreeBSD image folders hold the same files, runs ShellCheck, checks the versions of the changed images in a pull request, prepares and builds the changed images for each of their CPU types, and on `main` publishes them under their version and moves their minor and major tags |
 | Security | CodeQL on the workflows, the tracked-files check, and dependency review on pull requests |
 | Scorecard | OpenSSF Scorecard, published weekly and on every push |
 
