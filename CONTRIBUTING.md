@@ -116,12 +116,13 @@ An image with a `prepare.sh` needs it run first, the way the workflow does it:
 sh images/<name>/prepare.sh amd64
 ```
 
-The scripts are POSIX sh. Check them with what the Build workflow runs:
+The scripts, and the scripts inside the image folders, are POSIX sh. Check them with what the
+Build workflow runs:
 
 ```sh
 for test in scripts/*-test.sh; do sh "${test}"; done
 sh scripts/same-files.sh
-shellcheck --shell=sh -o all scripts/*.sh
+shellcheck --shell=sh -o all scripts/*.sh images/*/*.sh
 ```
 
 The checks that a pull request gets for the versions run on your branch the same way. They
