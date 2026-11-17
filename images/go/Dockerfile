@@ -65,24 +65,23 @@ RUN set -eu; \
     cd /; \
     rm -rf "${work}"
 
-# The user that the image runs as, and the folders that Go and the tools write to. The
-# base image has a user "ubuntu" that holds uid 1000, so it goes first. The folders are
-# world-writable with the sticky bit, like /tmp, so that a container started with any
-# other user (docker run --user 501:20, which has no entry in /etc/passwd) can write to
-# them too. A named volume mounted at /go/pkg/mod or /go/cache copies the mode of the
-# folder when Docker creates it, so it is writable by any user as well.
+# The user that the image runs as. The base image has a user "ubuntu" that holds uid 1000,
+# so it goes first. Its home is /tmp, which every Linux system makes writable by all users,
+# so the image opens no folder of its own to everyone.
 RUN set -eu; \
     userdel --remove ubuntu; \
     groupadd --gid 1000 build; \
-    useradd --uid 1000 --gid 1000 --create-home --home-dir /home/build --shell /bin/sh build; \
-    mkdir -p /go/bin /go/pkg/mod /go/cache; \
-    chmod 1777 /home/build /go/bin /go/pkg/mod /go/cache
+    useradd --uid 1000 --gid 1000 --no-create-home --home-dir /tmp --shell /bin/sh build
 
-# HOME is set here and not left to the user entry, because a user that is not in
-# /etc/passwd would get "/" as its home, where it cannot write.
-ENV GOPATH=/go \
-    GOCACHE=/go/cache \
-    HOME=/home/build \
-    PATH=/usr/local/go/bin:/go/bin:${PATH}
+# HOME, the module cache (GOPATH/pkg/mod, so /tmp/go/pkg/mod) and the build cache are in
+# /tmp, because every user may write there. HOME is set here and not left to the user
+# entry, because a container started with a user that is not in /etc/passwd (docker run
+# --user 501:20) would get "/" as its home, where it cannot write. The tools that the image
+# brings are in /usr/local/bin and /usr/local/go/bin, not in GOPATH/bin, so a folder that
+# a caller mounts over a cache hides none of them.
+ENV GOPATH=/tmp/go \
+    GOCACHE=/tmp/go-cache \
+    HOME=/tmp \
+    PATH=/usr/local/go/bin:${PATH}
 
 USER build

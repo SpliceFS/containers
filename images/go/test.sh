@@ -1,12 +1,14 @@
 #!/bin/sh
 # Checks that every tool of the image is installed and starts, that the image does not run
-# as root unless the run asks for it, that the folders that Go writes to are writable, and
-# that the race detector finds a race. The build workflow runs this inside the image, so
+# as root unless the run asks for it, that the folders that Go writes to are writable, that
+# no other folder is writable by every user, and that the race detector finds a race. The build workflow runs this inside the image, so
 # that a broken image is not published.
 #
 # The same file proves the other ways of running the image. Start the container with
 # --user 501:20 (a user that is not in the image) and every check still passes. Start it
 # with --user 0 -e EXPECT_ROOT=1 to prove the root mode: the run must then really be root.
+# Mount a host folder at /tmp/go/pkg/mod, /tmp/go-cache or both to prove that a caller's
+# cache folder works too.
 set -eu
 
 # Runs a tool with output hidden, and stops the whole test at the first one that is
@@ -26,6 +28,23 @@ check() {
 writable() {
     probe="$(mktemp "$1/probe.XXXXXX")" || return 1
     rm -f "${probe}"
+}
+
+# Creates the folder the way Go does when it first writes to it, and then proves that this
+# user can write there. A host folder that the caller mounts over it is there already.
+made_writable() {
+    mkdir -p "$1" || return 1
+    writable "$1"
+}
+
+# The folders that the Ubuntu base image makes writable by every user: the ones that every
+# Linux system has, and /var/lib/pebble/default. The image must not open any other folder
+# to every user. find fails on the folders that this user may not read, such as /root, and
+# no other user but root can reach those either, so only what it prints counts.
+folders_open_to_all() {
+    find / -xdev \( -path /tmp -o -path /var/tmp -o -path /run/lock \
+        -o -path /var/lib/pebble/default \) -prune \
+        -o -type d -perm -0002 -print 2>/dev/null || true
 }
 
 # Writes a package with a locked counter and an unlocked one into $1. The two tests give
@@ -123,13 +142,16 @@ else
     check "the default user is not root" test "${uid}" -ne 0
 fi
 
+check "HOME is writable" writable "${HOME}"
 gocache="$(go env GOCACHE)"
 gomodcache="$(go env GOMODCACHE)"
-gopath="$(go env GOPATH)"
-check "HOME is writable" writable "${HOME}"
-check "GOCACHE is writable" writable "${gocache}"
-check "GOMODCACHE is writable" writable "${gomodcache}"
-check "the bin folder of GOPATH is writable" writable "${gopath}/bin"
+check "GOCACHE is writable" made_writable "${gocache}"
+check "GOMODCACHE is writable" made_writable "${gomodcache}"
+open="$(folders_open_to_all)"
+if [ -n "${open}" ]; then
+    echo "writable by every user: ${open}" >&2
+fi
+check "no folder but the temporary ones is writable by every user" test -z "${open}"
 
 work="$(mktemp -d)"
 trap 'rm -rf "${work}"' EXIT
