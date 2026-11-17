@@ -27,7 +27,7 @@ git -C "${repo}" config commit.gpgsign false
 
 # The script finds the other scripts, and they find the repository, from their own place.
 mkdir -p "${repo}/scripts"
-for name in check-version-bump changed-images image-version version-valid version-compare; do
+for name in check-version-bump changed-images image-version version-valid version-compare legacy-version; do
     cp "${script_dir}/${name}.sh" "${repo}/scripts/${name}.sh"
 done
 script="${repo}/scripts/check-version-bump.sh"
@@ -234,6 +234,88 @@ check "a lower minor fails, whatever the patch is" 1 \
 bump v1.99.99
 check "a lower major fails, whatever the minor and patch are" 1 \
     "images/zeta changed, but its version v1.99.99 is not greater than v2.3.4" -- "${z5}" "${rev}"
+
+# The one-time move from the old versions (v1, v2) to MAJOR.MINOR.PATCH. A base that holds
+# the old form counts as the same number with .0.0, so v1 is v1.0.0. The same release is
+# allowed in the new form only when nothing but the version file changed.
+put images/theta/Dockerfile "FROM scratch"
+put images/theta/version "v1"
+put images/iota/Dockerfile "FROM scratch"
+put images/iota/version "v2"
+put images/kappa/Dockerfile "FROM scratch"
+put images/kappa/version "v3"
+commit "add theta, iota and kappa with the old versions"
+t0="${rev}"
+
+put images/theta/version "v1.0.0"
+commit "theta: only the version file, to the new form"
+check "the new form of the same release passes when only the version file changed" 0 \
+    "images/theta: v1.0.0 (v1 in the old form) -> v1.0.0" -- "${t0}" "${rev}"
+
+put images/theta/version "v1.0.1"
+commit "theta: only the version file, a patch above"
+check "a greater version passes when only the version file changed" 0 \
+    "images/theta: v1.0.0 (v1 in the old form) -> v1.0.1" -- "${t0}" "${rev}"
+
+put images/theta/version "v0.9.9"
+commit "theta: only the version file, below the old version"
+check "a version below the old one fails, though only the version file changed" 1 \
+    "images/theta changed, but its version v0.9.9 is not greater than v1.0.0 (v1 in the old form)" -- "${t0}" "${rev}"
+
+put images/theta/version "v1.0.0"
+put images/theta/README.md "about theta"
+commit "theta: the new form of the same release, with another file"
+check "the new form of the same release fails when another file changed" 1 \
+    "images/theta changed, but its version v1.0.0 is not greater than v1.0.0 (v1 in the old form)" \
+    "raise images/theta/version" -- "${t0}" "${rev}"
+
+put images/theta/version "v1.1.0"
+commit "theta: a greater version, with another file"
+t1="${rev}"
+check "a greater version passes when another file changed" 0 "images/theta: v1.0.0 (v1 in the old form) -> v1.1.0" -- "${t0}" "${t1}"
+
+# Only the files between the two ends of the range count, not the commits that make it.
+put images/kappa/Dockerfile "FROM scratch 2"
+commit "kappa: another file, the version still old"
+t2="${rev}"
+put images/kappa/version "v3.0.0"
+commit "kappa: then only the version file"
+t3="${rev}"
+check "another file changed earlier in the range counts as a change of the image" 1 \
+    "images/kappa changed, but its version v3.0.0 is not greater than v3.0.0 (v3 in the old form)" \
+    "images/theta: v1.0.0 (v1 in the old form) -> v1.1.0" -- "${t0}" "${t3}"
+check "the last commit alone holds only the version file, and its base has the old form" 0 \
+    "images/kappa: v3.0.0 (v3 in the old form) -> v3.0.0" -- "${t2}" "${t3}"
+
+put images/iota/version "v2.0.0"
+commit "iota: only the version file, to the new form"
+check "every image of the old form is moved the same way" 0 "images/iota: v2.0.0 (v2 in the old form) -> v2.0.0" -- "${t3}" "${rev}"
+
+# Only a number of the old form is moved. Anything else on the base is malformed.
+put images/lambda/Dockerfile "FROM scratch"
+put images/lambda/version "v01"
+put images/mu/Dockerfile "FROM scratch"
+put images/mu/version "v1"
+put images/nu/Dockerfile "FROM scratch"
+put images/nu/extra.sh "echo extra"
+put images/nu/version "v5"
+commit "add lambda, mu and nu"
+n0="${rev}"
+
+put images/lambda/version "v1.0.0"
+commit "lambda: a malformed version repaired"
+check "a malformed old version on the base is not the old form" 1 "is not a version" "images/lambda" -- "${n0}" "${rev}"
+
+put images/mu/version "v1"
+put images/mu/README.md "about mu"
+commit "mu: another file, the version still old"
+check "the old form at the head is not a version" 1 "is not a version" "images/mu" -- "${n0}" "${rev}"
+
+git -C "${repo}" rm -q images/nu/extra.sh
+put images/nu/version "v5.0.0"
+commit "nu: a file removed, the new form"
+check "a removed file counts as a change of the image" 1 \
+    "images/nu changed, but its version v5.0.0 is not greater than v5.0.0 (v5 in the old form)" -- "${n0}" "${rev}"
 
 zeros="0000000000000000000000000000000000000000"
 check "an all-zero base means every image is new" 0 \
