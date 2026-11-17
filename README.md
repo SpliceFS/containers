@@ -30,9 +30,9 @@ the tests, and none of them is meant for running SpliceFS in production.
 
 ### Server images
 
-Each server image is the vendor image of one system plus the service manager and
-`ca-certificates`, and nothing else. They are used by the install, upgrade, remove and
-service tests of the SpliceFS packages.
+Each server image is the vendor image of one system brought up to the vendor's own minimal
+server install, with the service manager started as process 1. They are used by the install,
+upgrade, remove and service tests of the SpliceFS packages.
 
 | Image | System | Service manager | Package format |
 | --- | --- | --- | --- |
@@ -54,20 +54,43 @@ service tests of the SpliceFS packages.
 
 A package test is only worth something on a system that looks like a server a user deploys:
 the vendor's system, installed, with its service manager running as process 1, and nothing of
-ours in it. The vendor's container images are not that. Most of them leave out the service
-manager, and the Debian and Ubuntu ones carry a file that stops packages from starting
-services. A server image fixes exactly that:
+ours in it. The vendor's container images are not that. They are cut far below a server: most
+have no service manager, and Debian and Ubuntu carry a file that stops packages from starting
+services. A server image installs the set that the vendor's own installer puts on a minimal
+server, and the set is read from the vendor, not listed here:
 
-- It adds the service manager where the vendor image lacks it: `systemd` on Debian,
-  Ubuntu, Rocky Linux, Amazon Linux and openSUSE, `openrc` on Alpine. It starts as process 1
-  when the container starts.
-- It adds `ca-certificates`, which every server has.
-- On Debian and Ubuntu it removes `/usr/sbin/policy-rc.d`.
-- It leaves `fuse3` out. The SpliceFS packages pull in `fuse3` themselves when they are
-  installed, and a test of the install has to see that happen.
+| System | The vendor's minimal set that the image installs |
+| --- | --- |
+| Debian | every package of priority `required` or `important`, plus `systemd-sysv`, read from the archive at build time |
+| Ubuntu | the metapackage `ubuntu-server-minimal` |
+| Rocky Linux | the group `core` |
+| Amazon Linux | the group `base-minimal` (the group `core` is five packages that the vendor image has already) |
+| openSUSE Leap | the patterns `base` and `minimal_base` (`minimal_base` alone is already in the vendor image and has no service manager) |
+| Alpine | the package `alpine-base`, which brings OpenRC |
 
-Nothing else is added, and nothing of this repository stays in the image: the setup script
-is mounted for the one build step that runs it.
+The images also hold:
+
+- `ca-certificates`, which every server has.
+- An empty `/etc/machine-id` on the systemd images, as vendors' images ship it, so that
+  every container made from an image chooses its own machine id when it boots.
+
+Where a container image differs from a server, the image follows the server: on Debian and
+Ubuntu `/usr/sbin/policy-rc.d` is removed, and the full `coreutils` and `curl` replace the
+minimal ones of the Rocky Linux and Amazon Linux images. The one setting made only for the
+container is on Alpine, where OpenRC is told it runs in a container (`rc_sys="docker"`).
+
+Recommended and weak dependencies follow the vendor's installer: left out on Debian, Ubuntu and
+Amazon Linux, installed on Rocky Linux and openSUSE.
+
+`fuse3` is not added. The SpliceFS packages pull in `fuse3` themselves when they are
+installed, and a test of the install has to see that happen. The vendor's set decides the
+rest: the Ubuntu set brings `fuse3` in through `snapd`, so a test on the Ubuntu images does not
+see that happen. Nothing of this repository stays in an image: the setup script is mounted for
+the one build step that runs it.
+
+Some units of a vendor's set cannot work inside a container, for example `auditd` on Rocky
+Linux and Amazon Linux, so `systemctl is-system-running` prints `degraded` there. Details are
+in the README of each image.
 
 ### Boot a server image
 

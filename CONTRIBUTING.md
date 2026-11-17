@@ -63,9 +63,12 @@ script in every folder of the family and raise every `version`.
 A new family needs a new group in `group_of` of `scripts/same-files.sh`, with a check in
 `scripts/same-files-test.sh`.
 
-An image holds the vendor system, the service manager and `ca-certificates`. Anything else is
-a decision for an issue first: a server image must look like a server that was just
-deployed, and the SpliceFS packages bring their own dependencies when they are installed.
+An image holds the vendor's own minimal server install (see the table in "What a server image
+is" in the top-level `README.md`), `ca-certificates` and nothing else. The set is named by the
+vendor's metapackage, group, pattern or priority, and is never a list kept here. A server image
+must look like a server that was just deployed, and the SpliceFS packages bring their own
+dependencies when they are installed, so adding a package to the image is a decision for an
+issue first.
 
 ## Versions
 
