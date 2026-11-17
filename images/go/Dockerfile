@@ -65,4 +65,24 @@ RUN set -eu; \
     cd /; \
     rm -rf "${work}"
 
-ENV PATH=/usr/local/go/bin:${PATH}
+# The user that the image runs as, and the folders that Go and the tools write to. The
+# base image has a user "ubuntu" that holds uid 1000, so it goes first. The folders are
+# world-writable with the sticky bit, like /tmp, so that a container started with any
+# other user (docker run --user 501:20, which has no entry in /etc/passwd) can write to
+# them too. A named volume mounted at /go/pkg/mod or /go/cache copies the mode of the
+# folder when Docker creates it, so it is writable by any user as well.
+RUN set -eu; \
+    userdel --remove ubuntu; \
+    groupadd --gid 1000 build; \
+    useradd --uid 1000 --gid 1000 --create-home --home-dir /home/build --shell /bin/sh build; \
+    mkdir -p /go/bin /go/pkg/mod /go/cache; \
+    chmod 1777 /home/build /go/bin /go/pkg/mod /go/cache
+
+# HOME is set here and not left to the user entry, because a user that is not in
+# /etc/passwd would get "/" as its home, where it cannot write.
+ENV GOPATH=/go \
+    GOCACHE=/go/cache \
+    HOME=/home/build \
+    PATH=/usr/local/go/bin:/go/bin:${PATH}
+
+USER build
