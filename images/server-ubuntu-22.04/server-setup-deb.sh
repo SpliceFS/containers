@@ -66,5 +66,10 @@ rm -rf /var/lib/apt/lists/*
 rm -f /usr/sbin/policy-rc.d
 
 # The installs gave this image a machine id, and every container made from it would share
-# it. Empty, as the vendor's images ship it, makes systemd choose its own at boot.
+# it. Empty, as the vendor's images ship it, makes systemd choose its own at boot. dbus keeps
+# a copy of the id of its own, a plain file on Ubuntu, and would hand it back to
+# /etc/machine-id at boot. On a server that copy is a link to /etc/machine-id.
 : >/etc/machine-id
+if [ -e /var/lib/dbus/machine-id ]; then
+    ln -sf /etc/machine-id /var/lib/dbus/machine-id
+fi

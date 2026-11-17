@@ -29,9 +29,13 @@ refuse() {
     echo "ok: ${name}"
 }
 
-# Status 0 when /etc/machine-id is a file with nothing in it.
+# Status 0 when /etc/machine-id is a file with nothing in it, and no other file named
+# machine-id holds an id either (dbus keeps a copy of its own on some systems, and that copy
+# would give every machine the id of the image).
 empty_machine_id() {
-    [ -f /etc/machine-id ] && [ ! -s /etc/machine-id ]
+    [ -f /etc/machine-id ] && [ ! -s /etc/machine-id ] || return 1
+    stray="$(find / -xdev -name machine-id -type f -size +0c 2>/dev/null)"
+    [ -z "${stray}" ]
 }
 
 # Status 0 when the system has a certificate bundle: Rocky Linux and Amazon Linux keep it in
