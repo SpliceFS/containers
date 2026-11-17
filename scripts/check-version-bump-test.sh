@@ -197,7 +197,8 @@ commit "remove beta"
 c17="${rev}"
 check "a removed image needs no version" 0 -- "${c16}" "${c17}"
 
-# The three places of a version are compared in order, each as a number.
+# The three places of a version are compared as numbers, each in its own place. The order
+# itself is tested in version-compare-test.sh, this shows that the check uses it.
 put images/zeta/Dockerfile "FROM scratch"
 put images/zeta/version "v1.9.9"
 commit "add zeta"
@@ -211,29 +212,13 @@ bump() {
 }
 
 bump v1.10.0
-check "a minor of two digits is greater than one of one digit" 0 "images/zeta: v1.9.9 -> v1.10.0" -- "${z0}" "${rev}"
+check "a greater minor passes, as a number and not as text" 0 "images/zeta: v1.9.9 -> v1.10.0" -- "${z0}" "${rev}"
 z1="${rev}"
 bump v1.10.1
 check "a greater patch passes" 0 "images/zeta: v1.10.0 -> v1.10.1" -- "${z1}" "${rev}"
-z2="${rev}"
-bump v1.10.10
-check "a patch of two digits is greater than one of one digit" 0 "images/zeta: v1.10.1 -> v1.10.10" -- "${z2}" "${rev}"
-z3="${rev}"
-bump v1.11.0
-check "a greater minor passes, whatever the patch was" 0 "images/zeta: v1.10.10 -> v1.11.0" -- "${z3}" "${rev}"
-z4="${rev}"
-bump v2.0.0
-check "a greater major passes, whatever the minor and patch were" 0 "images/zeta: v1.11.0 -> v2.0.0" -- "${z4}" "${rev}"
-bump v2.3.4
-z5="${rev}"
-bump v2.3.3
-check "a lower patch fails" 1 "images/zeta changed, but its version v2.3.3 is not greater than v2.3.4" -- "${z5}" "${rev}"
-bump v2.2.9
+bump v1.9.99
 check "a lower minor fails, whatever the patch is" 1 \
-    "images/zeta changed, but its version v2.2.9 is not greater than v2.3.4" -- "${z5}" "${rev}"
-bump v1.99.99
-check "a lower major fails, whatever the minor and patch are" 1 \
-    "images/zeta changed, but its version v1.99.99 is not greater than v2.3.4" -- "${z5}" "${rev}"
+    "images/zeta changed, but its version v1.9.99 is not greater than v1.10.0" -- "${z1}" "${rev}"
 
 # The one-time move from the old versions (v1, v2) to MAJOR.MINOR.PATCH. A base that holds
 # the old form counts as the same number with .0.0, so v1 is v1.0.0. The same release is
