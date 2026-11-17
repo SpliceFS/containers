@@ -2,7 +2,7 @@ FROM alpine:3.22
 
 # The source label links the published image to this repository on GitHub.
 LABEL org.opencontainers.image.source="https://github.com/SpliceFS/images" \
-      org.opencontainers.image.description="Alpine 3.22 as a server that is up and running: OpenRC as the service manager under init and ca-certificates, nothing else. The system the SpliceFS apk packages are tested on" \
+      org.opencontainers.image.description="Alpine 3.22 as a server that is up and running: the vendor's own minimal install (alpine-base) with OpenRC as the service manager under init, plus ca-certificates. The system the SpliceFS apk packages are tested on" \
       org.opencontainers.image.licenses="MIT"
 
 # The script is mounted for this one step instead of copied, so no layer of the image

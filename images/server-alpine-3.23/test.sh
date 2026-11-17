@@ -1,5 +1,5 @@
 #!/bin/sh
-# Checks that the image holds what a running server of this family has, and nothing that
+# Checks that the image holds what a minimal server of this vendor has, and nothing that
 # SpliceFS packages install themselves. The build workflow runs this inside the image, so
 # that a broken image is not published. Process 1 is not checked here, because the check
 # runs in place of the service manager; boot the image as the README says to see that.
@@ -32,6 +32,7 @@ refuse() {
 check "the service manager is there" test -x /sbin/openrc
 check "the init of the system is there" test -x /sbin/init
 check "rc-status is there" command -v rc-status
+check "package alpine-base" apk info -e alpine-base
 check "package openrc" apk info -e openrc
 check "package ca-certificates" apk info -e ca-certificates
 check "the certificate bundle is there" test -s /etc/ssl/certs/ca-certificates.crt
