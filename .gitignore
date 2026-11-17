@@ -14,7 +14,6 @@
 !/.gitattributes
 !/.github/
 !/.gitignore
-!/.sonarcloud.properties
 
 # --- Secrets -------------------------------------------------------------------
 # A committed secret stays in the history forever, so these are ignored at any
