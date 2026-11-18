@@ -34,8 +34,10 @@ done
 # render makes the boot script for the job script named job.sh, with every machine path
 # moved under ${work}/tmp and the console moved to the file or pipe named by $1.
 render() {
+    # The /tmp/ paths are moved first: the work folder itself can be under /tmp/ (it is on
+    # Linux), and the console path that comes in after must not be moved again.
     sed -e "s|@JOB@|job.sh|" -e "s|@ARGS@||" \
-        -e "s|/dev/console|$1|g" -e "s|/tmp/|${work}/tmp/|g" \
+        -e "s|/tmp/|${work}/tmp/|g" -e "s|/dev/console|$1|g" \
         "${template}" >"${work}/user-data"
 }
 
@@ -60,10 +62,12 @@ echo second >&2
 JOB
 render "${work}/console"
 
-# Only a failing test waits for the watchdog: it frees the job, and the flag fails the test.
+# Only a failing test waits for the watchdog: it frees the job and the reader of the console
+# (which waits for a writer when the job never opens the console), and the flag fails the test.
 (
     sleep 30
     : >"${work}/timed-out"
+    echo timed-out >"${work}/console" &
     echo go >"${work}/gate"
 ) >/dev/null 2>&1 &
 watchdog=$!
