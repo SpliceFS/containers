@@ -33,6 +33,10 @@ amzn)
     # because networkd manages no interface there.
     dnf install -y --allowerasing --setopt=install_weak_deps=False @base-minimal ca-certificates
     dnf clean all
+    # update-motd writes the login message. It takes about 30 seconds at every boot, and for
+    # that time systemd stays in the state starting, so whoever waits for a booted system
+    # waits for it. A container has no login that would show the message.
+    systemctl mask update-motd.service update-motd.timer
     ;;
 opensuse-leap)
     zypper --non-interactive --gpg-auto-import-keys install pattern:base ca-certificates
