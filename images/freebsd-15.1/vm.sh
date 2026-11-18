@@ -72,7 +72,8 @@ tar xf "${work}/out.img" -C "${got}" 2>/dev/null || true
 if [ -f "${got}/log.txt" ]; then cat "${got}/log.txt"; fi
 if [ "${status}" -ne 0 ] || [ ! -f "${got}/ok" ]; then
     echo "the FreeBSD machine did not finish its job (qemu status ${status}); its console:" >&2
-    tail -n 40 "${console}" >&2 || true
+    # The job writes to the console while it runs, so the last lines show where it stood.
+    tail -n 100 "${console}" >&2 || true
     exit 1
 fi
 rm -f "${got}/ok" "${got}/log.txt"
