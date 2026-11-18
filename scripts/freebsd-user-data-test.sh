@@ -1,0 +1,130 @@
+#!/bin/sh
+# Tests the boot script template of the FreeBSD images (images/freebsd-15.1/user-data.in, the
+# other releases hold the same file) with its machine commands replaced by stubs and its
+# paths moved into a throwaway folder. Run from anywhere:
+#   sh scripts/freebsd-user-data-test.sh
+#
+# What it proves: the job output reaches the console while the job still runs, so that a job
+# that is killed from outside leaves its last lines there; the same output is in log.txt;
+# nothing reaches the console twice; and the exit status of the job alone decides "ok".
+set -eu
+
+case "$0" in
+*/*) here="${0%/*}" ;;
+*) here="." ;;
+esac
+template="$(cd "${here}/.." && pwd)/images/freebsd-15.1/user-data.in"
+
+work="$(mktemp -d)"
+trap 'rm -rf "${work}"' EXIT
+trap 'exit 1' HUP INT TERM
+
+fail() {
+    echo "FAIL: $1" >&2
+    exit 1
+}
+
+# The machine commands do nothing here: the folders are plain ones and there is no disk.
+mkdir -p "${work}/stubs"
+for command in mount tar shutdown; do
+    printf '#!/bin/sh\nexit 0\n' >"${work}/stubs/${command}"
+    chmod 755 "${work}/stubs/${command}"
+done
+
+# render makes the boot script for the job script named job.sh, with every machine path
+# moved under ${work}/tmp and the console moved to the file or pipe named by $1.
+render() {
+    sed -e "s|@JOB@|job.sh|" -e "s|@ARGS@||" \
+        -e "s|/dev/console|$1|g" -e "s|/tmp/|${work}/tmp/|g" \
+        "${template}" >"${work}/user-data"
+}
+
+# fresh makes the folders of a run, with the job script from stdin.
+fresh() {
+    rm -rf "${work}/tmp"
+    mkdir -p "${work}/tmp/in"
+    cat >"${work}/tmp/in/job.sh"
+}
+
+start() {
+    PATH="${work}/stubs:${PATH}" sh "${work}/user-data"
+}
+
+# A job that is stopped from outside stands still on a pipe. The console is a pipe too, so
+# the test reads it as a machine's console would be read: a line is there or it is not.
+mkfifo "${work}/console" "${work}/gate"
+fresh <<JOB
+echo first
+read -r release <"${work}/gate"
+echo second >&2
+JOB
+render "${work}/console"
+
+# Only a failing test waits for the watchdog: it frees the job, and the flag fails the test.
+(
+    sleep 30
+    : >"${work}/timed-out"
+    echo go >"${work}/gate"
+) >/dev/null 2>&1 &
+watchdog=$!
+
+start >/dev/null 2>&1 &
+boot=$!
+exec 3<"${work}/console"
+read -r line <&3
+if [ "${line}" != first ]; then
+    fail "the first console line is \"${line}\", wanted \"first\""
+fi
+if [ -f "${work}/timed-out" ]; then
+    fail "the console got no line while the job was still running"
+fi
+echo go >"${work}/gate"
+read -r line <&3
+if [ "${line}" != second ]; then
+    fail "the second console line is \"${line}\", wanted \"second\""
+fi
+if read -r line <&3; then
+    fail "the console got \"${line}\" after the job output, so a line came twice"
+fi
+exec 3<&-
+wait "${boot}"
+kill "${watchdog}" 2>/dev/null || true
+echo "ok - the job output is on the console while the job runs, once"
+
+logged="$(cat "${work}/tmp/out/log.txt")"
+if [ "${logged}" != "first
+second" ]; then
+    fail "log.txt does not hold the standard output and the error output of the job"
+fi
+echo "ok - log.txt holds both streams of the job"
+
+if [ ! -f "${work}/tmp/out/ok" ]; then
+    fail "a job that exits with 0 left no ok file"
+fi
+echo "ok - a job that exits with 0 leaves the ok file"
+
+# The pipe to the console must not decide the result: the status is the job's own.
+for code in 1 3; do
+    fresh <<JOB
+echo failing
+exit ${code}
+JOB
+    render "${work}/console-file"
+    start >/dev/null 2>&1
+    if [ -f "${work}/tmp/out/ok" ]; then
+        fail "a job that exits with ${code} left the ok file"
+    fi
+    shown="$(cat "${work}/console-file")"
+    if [ "${shown}" != failing ]; then
+        fail "the console of the failing job does not hold its output"
+    fi
+    echo "ok - a job that exits with ${code} leaves no ok file"
+done
+
+# The result folder goes back to the caller as it is, so nothing else may be put in it.
+for file in "${work}/tmp/out"/*; do
+    if [ "${file}" != "${work}/tmp/out/log.txt" ]; then
+        fail "the result folder holds ${file}, which would go back to the caller"
+    fi
+done
+echo "ok - the result folder holds only log.txt"
