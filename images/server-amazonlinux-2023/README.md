@@ -21,8 +21,10 @@ installed, and a test of the install has to see that happen.
 
 Two things of the vendor image are changed, because a container image differs from a server
 in them: `/etc/machine-id` is empty, so that every container made from the image chooses its
-own machine id when it boots (installing systemd fills it in), and nothing else is removed or
-replaced except where the set needs it, see below.
+own machine id when it boots (installing systemd fills it in), and `update-motd.service` and
+`update-motd.timer` are masked, because the service takes about 30 seconds at every boot and
+keeps systemd in the state starting, and a container has no login that would show the message.
+Nothing else is removed or replaced except where the set needs it, see below.
 
 Boot it and ask the service manager (the flags are explained under "Server images" in the
 top-level README):

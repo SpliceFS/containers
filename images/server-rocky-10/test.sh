@@ -38,6 +38,13 @@ empty_machine_id() {
     [ -z "${stray}" ]
 }
 
+# Status 0 when the unit is masked. The service manager is not running when this test runs, so
+# the answer comes from the unit files alone.
+masked() {
+    state="$(systemctl is-enabled "$1" 2>/dev/null)" || true
+    [ "${state}" = masked ]
+}
+
 # Status 0 when the system has a certificate bundle: Rocky Linux and Amazon Linux keep it in
 # one place, openSUSE in another.
 bundle() {
@@ -75,6 +82,10 @@ rocky)
 amzn)
     check "package openssh-server" rpm -q openssh-server
     check "package chrony" rpm -q chrony
+    # update-motd runs for about 30 seconds at every boot and holds systemd in the state
+    # starting, and a container has no login that would show the message.
+    check "update-motd.service is masked" masked update-motd.service
+    check "update-motd.timer is masked" masked update-motd.timer
     ;;
 opensuse-leap)
     check "package patterns-base-base" rpm -q patterns-base-base
