@@ -1,4 +1,5 @@
 name: Build
+# Every job has a time limit: 3 times its longest run, so a hang fails in minutes.
 
 # Images are built only when their own folder changed, or when somebody starts this
 # workflow by hand. An image is published under its version, the one line of
@@ -23,6 +24,7 @@ jobs:
   changed:
     name: Find the images to build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -135,6 +137,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.changed.outputs.builds) }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -192,6 +195,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -268,6 +272,7 @@ jobs:
     needs: [changed, build]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions: {}
     steps:
       - name: Every build passed

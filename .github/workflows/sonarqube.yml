@@ -1,4 +1,5 @@
 name: SonarQube
+# Every job has a time limit: 3 times its longest run, so a hang fails in minutes.
 
 # Code quality and security rating on SonarQube Cloud, run here instead of by SonarQube Cloud's
 # automatic analysis, so that sonar-project.properties applies. The job does nothing until the
@@ -18,6 +19,7 @@ jobs:
   scan:
     name: Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
