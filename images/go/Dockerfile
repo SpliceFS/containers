@@ -9,7 +9,8 @@ ARG GO_SHA256_AMD64=7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab2
 ARG GO_SHA256_ARM64=3392582988a273a87ab5043ee1b2c9c17a2c3c00580bf9326c47a2e0aaaeac92
 # The release of golangci-lint that the CI of the SpliceFS repositories uses. The workflows
 # name it as v2.15 and v2.15.0 is the only release of that line. Change it here together
-# with the workflows, and raise the version of this image.
+# with the workflows, and raise the version of this image. It is built from source, see
+# below.
 ARG GOLANGCI_LINT_VERSION=2.15.0
 
 # The source label links the published image to this repository on GitHub.
@@ -46,22 +47,18 @@ RUN set -eu; \
     cd /; \
     rm -rf "${work}"
 
-# The official binary for the CPU type of the image, checked against the checksum file that
-# the same release publishes. Only the line of the archive is checked, because the file also
-# lists the other archives of the release. The download is deleted in the same layer.
+# Built here with the Go of this image, and not taken from the release binaries. A linter
+# built with an older Go than the one that compiles the checked code cannot read the export
+# data of the standard library, and then reports nothing for any rule that needs types, with
+# no error. The Go module checksum database verifies every module, and the build stops if
+# it does not. GOTOOLCHAIN=local keeps go from fetching any other toolchain. The module and
+# build caches are in a scratch folder that is deleted in the same layer.
 RUN set -eu; \
-    case "${TARGETARCH:-}" in \
-        amd64|arm64) ;; \
-        *) echo "Unsupported TARGETARCH \"${TARGETARCH:-}\": use amd64 or arm64." >&2; exit 1 ;; \
-    esac; \
-    release="https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}"; \
-    name="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${TARGETARCH}"; \
     work="$(mktemp -d)"; \
     cd "${work}"; \
-    curl -fsSLO --proto "=https" --proto-redir "=https" "${release}/${name}.tar.gz"; \
-    curl -fsSLO --proto "=https" --proto-redir "=https" "${release}/golangci-lint-${GOLANGCI_LINT_VERSION}-checksums.txt"; \
-    awk -v file="${name}.tar.gz" '$2 == file' "golangci-lint-${GOLANGCI_LINT_VERSION}-checksums.txt" | sha256sum -c -; \
-    tar -xzf "${name}.tar.gz" -C /usr/local/bin --strip-components=1 "${name}/golangci-lint"; \
+    GOTOOLCHAIN=local GOPATH="${work}/go" GOCACHE="${work}/cache" GOBIN=/usr/local/bin \
+        /usr/local/go/bin/go install -trimpath -ldflags "-s -w" \
+        "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}"; \
     cd /; \
     rm -rf "${work}"
 
