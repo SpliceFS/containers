@@ -6,7 +6,9 @@
 #
 # What it proves: the job output reaches the console while the job still runs, so that a job
 # that is killed from outside leaves its last lines there; the same output is in log.txt;
-# nothing reaches the console twice; and the exit status of the job alone decides "ok".
+# nothing reaches the console twice; the exit status of the job alone decides "ok"; and
+# nothing left in the result folder or the status file by an earlier boot reaches the caller
+# or survives the boot (FreeBSD keeps /tmp across boots).
 set -eu
 
 case "$0" in
@@ -24,12 +26,21 @@ fail() {
     exit 1
 }
 
-# The machine commands do nothing here: the folders are plain ones and there is no disk.
+# The machine commands do nothing here: the folders are plain ones and there is no disk. The
+# tar stub keeps a copy of what the machine would send back (tar cf <disk> -C <folder> .) in
+# ${work}/sent, because that, not the folder after the boot, is what the caller gets.
 mkdir -p "${work}/stubs"
-for command in mount tar shutdown; do
+for command in mount shutdown; do
     printf '#!/bin/sh\nexit 0\n' >"${work}/stubs/${command}"
     chmod 755 "${work}/stubs/${command}"
 done
+cat >"${work}/stubs/tar" <<STUB
+#!/bin/sh
+rm -rf "${work}/sent"
+mkdir -p "${work}/sent"
+cp -R "\$4"/. "${work}/sent"/
+STUB
+chmod 755 "${work}/stubs/tar"
 
 # render makes the boot script for the job script named job.sh, with every machine path
 # moved under ${work}/tmp and the console moved to the file or pipe named by $1.
@@ -43,7 +54,7 @@ render() {
 
 # fresh makes the folders of a run, with the job script from stdin.
 fresh() {
-    rm -rf "${work}/tmp"
+    rm -rf "${work}/tmp" "${work}/sent"
     mkdir -p "${work}/tmp/in"
     cat >"${work}/tmp/in/job.sh"
 }
@@ -95,14 +106,14 @@ wait "${boot}"
 kill "${watchdog}" 2>/dev/null || true
 echo "ok - the job output is on the console while the job runs, once"
 
-logged="$(cat "${work}/tmp/out/log.txt")"
+logged="$(cat "${work}/sent/log.txt")"
 if [ "${logged}" != "first
 second" ]; then
     fail "log.txt does not hold the standard output and the error output of the job"
 fi
 echo "ok - log.txt holds both streams of the job"
 
-if [ ! -f "${work}/tmp/out/ok" ]; then
+if [ ! -f "${work}/sent/ok" ]; then
     fail "a job that exits with 0 left no ok file"
 fi
 echo "ok - a job that exits with 0 leaves the ok file"
@@ -115,7 +126,7 @@ exit ${code}
 JOB
     render "${work}/console-file"
     start >/dev/null 2>&1
-    if [ -f "${work}/tmp/out/ok" ]; then
+    if [ -f "${work}/sent/ok" ]; then
         fail "a job that exits with ${code} left the ok file"
     fi
     shown="$(cat "${work}/console-file")"
@@ -126,9 +137,36 @@ JOB
 done
 
 # The result folder goes back to the caller as it is, so nothing else may be put in it.
-for file in "${work}/tmp/out"/*; do
-    if [ "${file}" != "${work}/tmp/out/log.txt" ]; then
+for file in "${work}/sent"/*; do
+    if [ "${file}" != "${work}/sent/log.txt" ]; then
         fail "the result folder holds ${file}, which would go back to the caller"
     fi
 done
 echo "ok - the result folder holds only log.txt"
+
+# The disk of the image was booted once to prepare it, and FreeBSD keeps /tmp across boots,
+# so a later boot can find the result folder and the status file of an earlier one. A stale
+# ok must not make a failing job pass, and nothing stale may go back to the caller.
+fresh <<JOB
+exit 1
+JOB
+mkdir -p "${work}/tmp/out"
+: >"${work}/tmp/out/ok"
+: >"${work}/tmp/out/stale"
+echo 0 >"${work}/tmp/status"
+render "${work}/console-file"
+start >/dev/null 2>&1
+if [ -f "${work}/sent/ok" ]; then
+    fail "an ok file left by an earlier boot made a failing job pass"
+fi
+if [ -f "${work}/sent/stale" ]; then
+    fail "a file left by an earlier boot went back to the caller"
+fi
+echo "ok - nothing an earlier boot left in the result folder reaches the caller"
+
+# The boot leaves nothing behind for the next one, so the disk made by the preparation boot
+# ships without a result folder or a status file.
+if [ -e "${work}/tmp/out" ] || [ -e "${work}/tmp/status" ]; then
+    fail "the boot left its result folder or its status file on the disk"
+fi
+echo "ok - the boot removes its result folder and its status file"

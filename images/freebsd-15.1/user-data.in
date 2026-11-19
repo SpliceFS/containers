@@ -2,6 +2,12 @@
 # FreeBSD runs this once, at the end of its first boot, as root. It hands over to the job
 # script, writes everything the job produced to the scratch disk as a tar archive, and
 # powers the machine off, which ends the run on the other side.
+#
+# FreeBSD keeps /tmp across boots, and the disk of the image was booted once to prepare it, so
+# the result folder and the status file of an earlier boot could still be there. They are
+# removed first, so that only this job decides what goes back, and again at the end, so that
+# a boot leaves nothing for the next one and the prepared disk ships without them.
+rm -rf /tmp/out /tmp/status
 mkdir -p /tmp/in /tmp/out
 mount -t msdosfs -o ro /dev/msdosfs/cidata /tmp/in
 # The output goes to the console while the job runs, so that a job that is stopped from
@@ -12,4 +18,5 @@ if [ "$(cat /tmp/status)" = 0 ]; then
     touch /tmp/out/ok
 fi
 tar cf /dev/vtbd2 -C /tmp/out .
+rm -rf /tmp/out /tmp/status
 shutdown -p now
