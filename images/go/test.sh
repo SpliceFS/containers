@@ -1,7 +1,8 @@
 #!/bin/sh
 # Checks that every tool of the image is installed and starts, that the image does not run
 # as root unless the run asks for it, that the folders that Go writes to are writable, that
-# no other folder is writable by every user, and that the race detector finds a race. The build workflow runs this inside the image, so
+# no other folder is writable by every user, that the race detector finds a race, and that
+# golangci-lint finds a dropped error of a standard library call. The build workflow runs this inside the image, so
 # that a broken image is not published.
 #
 # The same file proves the other ways of running the image. Start the container with
@@ -115,6 +116,46 @@ unlocked_is_reported() {
     grep -q 'WARNING: DATA RACE' "${work}/race.out"
 }
 
+# Writes a package that drops the error of a standard library call into $1, with a
+# configuration that enables only that rule. The rule needs the types of the standard
+# library, so a linter that cannot load them reports nothing and passes any code.
+write_lint_package() {
+    (
+        cd "$1"
+        go mod init lintcheck
+        cat >main.go <<'EOF'
+package main
+
+import "os"
+
+func main() {
+	os.Remove("probe")
+}
+EOF
+        cat >.golangci.yml <<'EOF'
+version: "2"
+linters:
+  default: none
+  enable:
+    - revive
+  settings:
+    revive:
+      rules:
+        - name: unhandled-error
+EOF
+    )
+}
+
+# The linter must report the dropped error, and only a report that names the rule counts. A
+# clean run means that the linter cannot see the types of the standard library.
+dropped_error_is_reported() {
+    if golangci-lint run ./... >"${work}/lint.out" 2>&1; then
+        cat "${work}/lint.out" >&2
+        return 1
+    fi
+    grep -q 'unhandled-error' "${work}/lint.out"
+}
+
 check "go" go version
 cgo_enabled="$(go env CGO_ENABLED)"
 check "go env CGO_ENABLED is 1" test "${cgo_enabled}" = 1
@@ -159,3 +200,8 @@ write_race_package "${work}"
 cd "${work}"
 check "go test -race passes a locked counter" locked_passes
 check "go test -race reports an unlocked counter" unlocked_is_reported
+
+lintdir="$(mktemp -d "${work}/lint.XXXXXX")"
+write_lint_package "${lintdir}"
+cd "${lintdir}"
+check "golangci-lint reports a dropped error of a standard library call" dropped_error_is_reported
