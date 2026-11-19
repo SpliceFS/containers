@@ -56,7 +56,10 @@ Then:
     /freebsd/vm.sh amd64 /freebsd/disk.qcow2 <job folder> <result folder> [input archive]
 
 The machine writes the job output to the standard output and everything the job left in
-its output folder to the result folder. The disk is never written to: each run works on a
+its output folder to the result folder. The job output also goes to the machine console
+while the job runs, and `vm.sh` keeps the console in the result folder as
+`console-<job folder name>-<arch>.log`. When a run is stopped by `VM_TIMEOUT`, `vm.sh` prints
+the last 100 lines of the console, which end with the last lines the job wrote. The disk is never written to: each run works on a
 copy-on-write layer. `VM_TIMEOUT` (default 900) is the longest run in seconds. Pass
 `--device /dev/kvm` to `docker run` when the computer has it; without it the machine is
 emulated and much slower. `test.sh` is a complete small example.
