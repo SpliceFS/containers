@@ -5,7 +5,7 @@ checks of the SpliceFS repositories need:
 
 - Go 1.27.4, the official release archive from go.dev for the CPU type of the image. The version and its sha256 checksums are `ARG`s in the `Dockerfile`, taken from the list at https://go.dev/dl/?mode=json, and the build stops unless the download matches the checksum.
 - gcc and libc6-dev, which cgo and `go test -race` need (`CGO_ENABLED` is 1)
-- golangci-lint, in the release that the CI of the SpliceFS repositories uses (`ARG GOLANGCI_LINT_VERSION` in the `Dockerfile`). It is the official binary for the CPU type of the image, and the build stops unless it matches the checksum file of the same release.
+- golangci-lint, in the release that the CI of the SpliceFS repositories uses (`ARG GOLANGCI_LINT_VERSION` in the `Dockerfile`). It is built from source during the image build, with the Go of the image (`go install` of that release, every module checked by the Go checksum database), and not taken from the release binaries. A linter built with an older Go than the image's cannot read the export data of the standard library, and then silently skips every rule that needs types, such as revive's `unhandled-error`. `test.sh` plants a dropped error and requires the linter to report it.
 - ShellCheck, git and make
 - FUSE (`fusermount3`), for the Linux checks that mount a file system
 - curl, xz and zstd
