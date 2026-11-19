@@ -7,7 +7,7 @@
 #           puts on a system when no task is chosen, plus systemd-sysv.
 #   Ubuntu: the metapackage ubuntu-server-minimal, which is the minimal server install.
 # ca-certificates is added, because every server has them. Recommended packages are left
-# out, as the vendors' installers leave them out of the base system. Two changes follow,
+# out, as the vendors' installers leave them out of the base system. Three changes follow,
 # because a container image differs from a server in them, see the end. The same file is in
 # the folder of every deb server image, and scripts/same-files.sh checks that.
 set -eu
@@ -64,6 +64,12 @@ rm -rf /var/lib/apt/lists/*
 # removed after the installs above, because the build has no service manager to start
 # anything with.
 rm -f /usr/sbin/policy-rc.d
+
+# A container has no console and no terminal, so a getty that systemd starts on one is no part
+# of a valid boot, and after the container restarts it dumps core. Masking the template
+# getty@.service covers its instances, and masking getty.target keeps the units that the
+# target pulls in from starting.
+systemctl mask console-getty.service getty@.service serial-getty@.service getty.target
 
 # The installs gave this image a machine id, and every container made from it would share
 # it. Empty, as the vendor's images ship it, makes systemd choose its own at boot. dbus keeps

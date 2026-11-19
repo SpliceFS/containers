@@ -12,10 +12,13 @@ no network tools. This image brings it up to Ubuntu's minimal server install, wh
   the set. Recommended packages are not installed.
 - `ca-certificates`, which every server has.
 
-Two things of the vendor image are changed, because a container image differs from a server
+Three things of the vendor image are changed, because a container image differs from a server
 in them: `/usr/sbin/policy-rc.d`, which stops every package from starting its service, is
-removed, and `/etc/machine-id` is empty, so that every container made from the image
-chooses its own machine id when it boots.
+removed, `/etc/machine-id` is empty, so that every container made from the image
+chooses its own machine id when it boots, and the console and terminal login units `console-getty.service`, `getty@.service`,
+`serial-getty@.service` and `getty.target` are masked, because a container has no console
+or terminal for a login prompt to run on, and a getty started on a missing one dumps core
+after the container restarts.
 
 `fuse3` is in the image. Ubuntu's minimal server install brings it in, and the image keeps
 what the vendor's set has. A test of the install on this image therefore does not see the

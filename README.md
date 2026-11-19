@@ -79,8 +79,12 @@ The images also hold:
 
 Where a container image differs from a server, the image follows the server: on Debian and
 Ubuntu `/usr/sbin/policy-rc.d` is removed, and the full `coreutils` and `curl` replace the
-minimal ones of the Rocky Linux and Amazon Linux images. The one setting made only for the
-container is on Alpine, where OpenRC is told it runs in a container (`rc_sys="docker"`).
+minimal ones of the Rocky Linux and Amazon Linux images. Two things are done only for the
+container. A container has no console or terminal for a login prompt to run on, and a getty
+started on a missing one dumps core after the container restarts, so the systemd images mask
+the login units (`console-getty.service`, `getty@.service`, `serial-getty@.service`,
+`getty.target`) and the Alpine images drop the `getty` lines of `/etc/inittab`. And on Alpine
+OpenRC is told it runs in a container (`rc_sys="docker"`).
 
 Recommended and weak dependencies follow the vendor's installer: left out on Debian, Ubuntu and
 Amazon Linux, installed on Rocky Linux and openSUSE.

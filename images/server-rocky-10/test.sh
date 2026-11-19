@@ -62,6 +62,16 @@ check "package systemd" rpm -q systemd
 check "package ca-certificates" rpm -q ca-certificates
 check "the certificate bundle is there" bundle
 check "machine-id exists and is empty, so that each machine makes its own" empty_machine_id
+
+# A container has no console and no terminal, so a getty that systemd starts on one is no part
+# of a valid boot, and it dumps core after the container restarts. getty@tty1.service is asked
+# too, to see that masking the template covers its instances.
+check "console-getty.service is masked" masked console-getty.service
+check "getty@.service is masked" masked getty@.service
+check "getty@tty1.service is masked" masked getty@tty1.service
+check "serial-getty@.service is masked" masked serial-getty@.service
+check "getty.target is masked" masked getty.target
+
 refuse "package fuse3 is not installed" rpm -q fuse3
 refuse "fusermount3 is not there" command -v fusermount3
 

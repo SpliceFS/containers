@@ -19,8 +19,11 @@ installed, and a test of the install has to see that happen.
 
 Two things of the vendor image are changed, because a container image differs from a server
 in them: `/etc/machine-id` is empty, so that every container made from the image chooses its
-own machine id when it boots (installing systemd fills it in), and nothing else is removed or
-replaced except where the set needs it, see below.
+own machine id when it boots (installing systemd fills it in), and the console and terminal login units `console-getty.service`, `getty@.service`,
+`serial-getty@.service` and `getty.target` are masked, because a container has no console
+or terminal for a login prompt to run on, and a getty started on a missing one dumps core
+after the container restarts.
+Nothing else is removed or replaced except where the set needs it, see below.
 
 Boot it and ask the service manager (the flags are explained under "Server images" in the
 top-level README):
