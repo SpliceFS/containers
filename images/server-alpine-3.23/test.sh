@@ -37,5 +37,9 @@ check "package openrc" apk info -e openrc
 check "package ca-certificates" apk info -e ca-certificates
 check "the certificate bundle is there" test -s /etc/ssl/certs/ca-certificates.crt
 check "OpenRC knows it runs in a container" grep -q '^rc_sys="docker"$' /etc/rc.conf
+# A container has no console and no terminal, so the getty that inittab respawns on tty1 to tty6
+# is no part of a valid boot: it fails to open the terminal, or, where the host shows its
+# terminals through, it runs a login prompt that nobody reads.
+refuse "inittab starts no getty" grep -q '^[^#].*getty' /etc/inittab
 refuse "package fuse3 is not installed" apk info -e fuse3
 refuse "fusermount3 is not there" command -v fusermount3
