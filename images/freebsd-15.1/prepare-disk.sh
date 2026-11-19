@@ -122,7 +122,7 @@ tar xf "${boot}/out.img" -C "${got}" 2>/dev/null || true
 if [ -f "${got}/log.txt" ]; then cat "${got}/log.txt"; fi
 if [ "${status}" -ne 0 ] || [ ! -f "${got}/ok" ]; then
     echo "preparation boot ${number} did not finish its job (qemu status ${status}); its console:" >&2
-    tail -n 6 "${boot}/console.log" >&2 || true
+    tail -n 100 "${boot}/console.log" >&2 || true
     echo "run this script again with the same WORK_DIR to continue" >&2
     exit 75
 fi
