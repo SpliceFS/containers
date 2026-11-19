@@ -47,6 +47,13 @@ empty_machine_id() {
     [ -z "${stray}" ]
 }
 
+# Status 0 when the unit is masked. The service manager is not running when this test runs, so
+# the answer comes from the unit files alone.
+masked() {
+    state="$(systemctl is-enabled "$1" 2>/dev/null)" || true
+    [ "${state}" = masked ]
+}
+
 # Status 0 when dpkg says the package is installed.
 installed() {
     # dpkg-query reads ${db:Status-Status} itself, the shell must not.
@@ -63,6 +70,15 @@ check "package ca-certificates" installed ca-certificates
 check "the certificate bundle is there" test -s /etc/ssl/certs/ca-certificates.crt
 refuse "the policy file that stops services from starting is gone" test -e /usr/sbin/policy-rc.d
 check "machine-id exists and is empty, so that each machine makes its own" empty_machine_id
+
+# A container has no console and no terminal, so a getty that systemd starts on one is no part
+# of a valid boot, and it dumps core after the container restarts. getty@tty1.service is asked
+# too, to see that masking the template covers its instances.
+check "console-getty.service is masked" masked console-getty.service
+check "getty@.service is masked" masked getty@.service
+check "getty@tty1.service is masked" masked getty@tty1.service
+check "serial-getty@.service is masked" masked serial-getty@.service
+check "getty.target is masked" masked getty.target
 
 # The rest is the vendor's own set. Debian: the packages of priority required and important
 # are what its installer puts on a minimal install, and iproute2 and init stand for them.

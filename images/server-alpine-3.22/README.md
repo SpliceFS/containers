@@ -10,6 +10,8 @@ manager. This image brings it up to what Alpine's own setup installs first:
   starts from `/sbin/init`, process 1, the way a server that has booted runs it. OpenRC is
   told that it runs in a container (`rc_sys="docker"` in `/etc/rc.conf`), because a
   container cannot reach the hardware that its boot services expect.
+  The `getty` lines for `tty1` to `tty6` are removed from `/etc/inittab`, because a container
+  has no console or terminal for a login prompt to run on.
 - `ca-certificates`, which every server has.
 
 `fuse3` is not in the image. The SpliceFS packages pull it in themselves when they are
