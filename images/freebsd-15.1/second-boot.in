@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# PROVIDE: second_boot
+# REQUIRE: LOGIN
+# KEYWORD: nojail
+#
+# A FreeBSD rc.d script that runs one file once, at the next boot, and then powers the
+# machine off. A job installs it; user-data.in says how. At that boot it restores the results
+# of the first boot from the scratch disk (/dev/vtbd2, the one user-data.in writes to), runs
+# the file with the result folder as its only argument, adds the output of the file to
+# log.txt, writes the results back, and powers off, as user-data.in does for the first boot.
+#
+# It removes itself before it runs the file, so that a file that fails, or a boot that
+# stops half way, never runs twice. The script runs after the services that start before
+# LOGIN. A service that requires LOGIN itself can start after it, so a file that checks
+# such a service waits for the service, not for time to pass.
+# shellcheck source=/dev/null
+. /etc/rc.subr
+
+name="second_boot"
+rcvar="second_boot_enable"
+start_cmd="second_boot_start"
+stop_cmd=":"
+
+second_boot_start()
+{
+    rm -f /usr/local/etc/rc.d/second_boot
+    # An earlier boot can have left these, as in user-data.in.
+    rm -rf /tmp/out /tmp/status
+    mkdir -p /tmp/out
+    tar xf /dev/vtbd2 -C /tmp/out
+    # The ok of the first boot says that the first boot went well, not this one, and the file
+    # second-boot has done its work.
+    rm -f /tmp/out/ok /tmp/out/second-boot
+    { sh @FILE@ /tmp/out 2>&1; echo $? > /tmp/status; } | tee -a /tmp/out/log.txt > /dev/console
+    if [ "$(cat /tmp/status)" = 0 ]; then
+        touch /tmp/out/ok
+    fi
+    tar cf /dev/vtbd2 -C /tmp/out .
+    rm -rf /tmp/out /tmp/status
+    shutdown -p now
+}
+
+load_rc_config "${name}"
+# The script exists to run once, so it is enabled by being installed.
+: "${second_boot_enable:=YES}"
+run_rc_command "$1"

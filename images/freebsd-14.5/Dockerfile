@@ -16,7 +16,8 @@ USER root
 
 # The disk is made by prepare.sh before the build, because it takes a booted machine.
 COPY disk.qcow2 /freebsd/disk.qcow2
-# The machine runner and the template of the job file, so that every test boots the disk
-# the same way. The file official names the FreeBSD release of the disk, which is how
-# test.sh knows what to expect and how a test can ask the image which release it holds.
-COPY vm.sh user-data.in official /freebsd/
+# The machine runner and the templates of the job file and of the one-shot script for a
+# second boot, so that every test boots the disk the same way. The file official names the
+# FreeBSD release of the disk, which is how test.sh knows what to expect and how a test can
+# ask the image which release it holds.
+COPY vm.sh user-data.in second-boot.in official /freebsd/

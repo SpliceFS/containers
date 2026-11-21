@@ -47,6 +47,25 @@ echo "this job fails"
 exit 1
 JOB
 
+# A job that needs a second boot installs the one-shot rc.d script of the image with a file to
+# run, and asks for the boot with the file second-boot, as user-data.in describes.
+make_job twice <<'JOB'
+#!/bin/sh
+set -eu
+echo "phase one"
+mkdir -p /var/db/second-boot
+cp /tmp/in/phase-two.sh /var/db/second-boot/phase-two.sh
+sed -e "s|@FILE@|/var/db/second-boot/phase-two.sh|" /tmp/in/second-boot.in > /usr/local/etc/rc.d/second_boot
+chmod 555 /usr/local/etc/rc.d/second_boot
+touch /tmp/out/second-boot
+JOB
+cp /freebsd/second-boot.in "${work}/twice/"
+cat > "${work}/twice/phase-two.sh" <<'JOB'
+#!/bin/sh
+echo "phase two"
+uptime > "$1/second"
+JOB
+
 # vm.sh prints the output of the job and stops the machine after VM_TIMEOUT seconds.
 VM_TIMEOUT=300
 export VM_TIMEOUT
@@ -83,3 +102,25 @@ if ! grep -q '^pkg: set up$' "${work}/output.txt"; then
     exit 1
 fi
 echo "ok: FreeBSD ${release} with the package tool set up"
+
+# The same disk boots a second time and the second boot adds to the results of the first. The
+# job runs once: the job disk is not attached to the second boot, and the boot hook would run
+# it again.
+status=0
+/freebsd/vm.sh amd64 "${disk}" "${work}/twice" "${work}/twice-results" > "${work}/twice.txt" || status=$?
+cat "${work}/twice.txt"
+if [ "${status}" -ne 0 ]; then
+    echo "FAIL: the machine did not finish the job with a second boot" >&2
+    exit 1
+fi
+twice_output="$(cat "${work}/twice.txt")"
+if [ "${twice_output}" != "phase one
+phase two" ]; then
+    echo "FAIL: the output of the two boots is not phase one, then phase two, once each" >&2
+    exit 1
+fi
+if [ ! -s "${work}/twice-results/second" ]; then
+    echo "FAIL: the second boot left no result" >&2
+    exit 1
+fi
+echo "ok: a second boot of the same disk runs the file of the job and adds to its results"
