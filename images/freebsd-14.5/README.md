@@ -40,6 +40,8 @@ pass the device to the container:
 - `/freebsd/disk.qcow2`: the prepared disk.
 - `/freebsd/vm.sh`: the machine runner. QEMU comes from the `go-qemu` image.
 - `/freebsd/user-data.in`: the template of the file that FreeBSD runs on boot.
+- `/freebsd/second-boot.in`: the template of a one-shot rc.d script, for a job that needs a
+  second boot.
 - `/freebsd/official`: the line of the official disk this one was made from. Its first
   field is the FreeBSD release.
 
@@ -63,9 +65,19 @@ its output folder to the result folder. The job output also goes to the machine 
 while the job runs, and `vm.sh` keeps the console in the result folder as
 `console-<job folder name>-<arch>.log`. When a run is stopped by `VM_TIMEOUT`, `vm.sh` prints
 the last 100 lines of the console, which end with the last lines the job wrote. The disk is never written to: each run works on a
-copy-on-write layer. `VM_TIMEOUT` (default 900) is the longest run in seconds. Pass
+copy-on-write layer, which `vm.sh` removes when the run ends. `VM_TIMEOUT` (default 900) is the longest run in seconds. Pass
 `--device /dev/kvm` to `docker run` when the computer has it; without it the machine is
 emulated and much slower. `test.sh` is a complete small example.
+
+A job that needs the machine to boot a second time (to prove what a restart does) creates the
+file `second-boot` in its result folder and installs the one-shot script `second-boot.in`
+with a file to run; `user-data.in` shows the lines. When the first boot has powered off,
+`vm.sh` boots the same disk again with the same scratch disk, and no job disk, so that the
+job does not run twice. The script of the second boot runs the file, adds its output to the
+log and its files to the results of the first boot, and powers off. `VM_TIMEOUT` applies to
+each boot, and the console of the second boot is kept as
+`console-<job folder name>-<arch>-second-boot.log`. A job that does not create the file
+`second-boot` runs one boot, as before. `test.sh` has an example.
 
 The disk is a snapshot of the day the image was built, so it does not get later FreeBSD
 patches until the image gets a new version.

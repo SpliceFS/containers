@@ -3,6 +3,23 @@
 # script, writes everything the job produced to the scratch disk as a tar archive, and
 # powers the machine off, which ends the run on the other side.
 #
+# A job that needs the machine to boot once more creates the file second-boot in its result
+# folder (its second argument), and vm.sh then boots the same disk a second time, with the same
+# scratch disk and without a job disk. The machine's own restart is not used. What runs at that
+# boot has to be on the system disk before the job ends, as a one-shot rc.d script: the file
+# second-boot.in in /freebsd of the image is one. The job folder holds a copy of it, and the
+# job installs it with the file to run (here phase-two.sh, which gets the result folder as
+# its argument; the replacement text is the path of the file on the system disk):
+#
+#   mkdir -p /var/db/second-boot
+#   cp /tmp/in/phase-two.sh /var/db/second-boot/phase-two.sh
+#   sed -e "s|@FILE@|/var/db/second-boot/phase-two.sh|" /tmp/in/second-boot.in > /usr/local/etc/rc.d/second_boot
+#   chmod 555 /usr/local/etc/rc.d/second_boot
+#   touch /tmp/out/second-boot
+#
+# That boot adds to the results of this one and powers off the same way. A job that does not
+# create the file second-boot gets no second boot.
+#
 # FreeBSD keeps /tmp across boots, and the disk of the image was booted once to prepare it, so
 # the result folder and the status file of an earlier boot could still be there. They are
 # removed first, so that only this job decides what goes back, and again at the end, so that
